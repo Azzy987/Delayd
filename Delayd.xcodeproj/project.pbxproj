@@ -1,0 +1,811 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		25B427082F9DD11D00815A83 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = AA1234560001000000000001 /* Lottie */; };
+		7A1B100E2FA100000000000E /* DelaydWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A1B10012FA1000000000001 /* DelaydWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BB1234560001000000000001 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = BB1234560001000000000004 /* RevenueCat */; };
+		BB1234560001000000000002 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = BB1234560001000000000005 /* RevenueCatUI */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2505AF802F910C9C00D10062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2505AF6A2F910C9B00D10062 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2505AF712F910C9B00D10062;
+			remoteInfo = Delayd;
+		};
+		2505AF8A2F910C9C00D10062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2505AF6A2F910C9B00D10062 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2505AF712F910C9B00D10062;
+			remoteInfo = Delayd;
+		};
+		7A1B100A2FA100000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2505AF6A2F910C9B00D10062 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A1B10062FA1000000000006;
+			remoteInfo = DelaydWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7A1B100C2FA100000000000C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7A1B100E2FA100000000000E /* DelaydWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		2505AF722F910C9B00D10062 /* Delayd.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Delayd.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2505AF7F2F910C9C00D10062 /* DelaydTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DelaydTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2505AF892F910C9C00D10062 /* DelaydUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DelaydUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A1B10012FA1000000000001 /* DelaydWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DelaydWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		47F378475EAA4F02860D8CAF /* Exceptions for "Delayd" folder in "Delayd" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 2505AF712F910C9B00D10062 /* Delayd */;
+		};
+		7A1B100F2FA100000000000F /* Exceptions for "DelaydWidget" folder in "DelaydWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				SETUP.md,
+			);
+			target = 7A1B10062FA1000000000006 /* DelaydWidget */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		2505AF742F910C9B00D10062 /* Delayd */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				47F378475EAA4F02860D8CAF /* Exceptions for "Delayd" folder in "Delayd" target */,
+			);
+			path = Delayd;
+			sourceTree = "<group>";
+		};
+		2505AF822F910C9C00D10062 /* DelaydTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DelaydTests;
+			sourceTree = "<group>";
+		};
+		2505AF8C2F910C9C00D10062 /* DelaydUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DelaydUITests;
+			sourceTree = "<group>";
+		};
+		7A1B10022FA1000000000002 /* DelaydWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7A1B100F2FA100000000000F /* Exceptions for "DelaydWidget" folder in "DelaydWidget" target */,
+			);
+			path = DelaydWidget;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2505AF6F2F910C9B00D10062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				25B427082F9DD11D00815A83 /* Lottie in Frameworks */,
+				BB1234560001000000000001 /* RevenueCat in Frameworks */,
+				BB1234560001000000000002 /* RevenueCatUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2505AF7C2F910C9C00D10062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2505AF862F910C9C00D10062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A1B10042FA1000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2505AF692F910C9B00D10062 = {
+			isa = PBXGroup;
+			children = (
+				2505AF742F910C9B00D10062 /* Delayd */,
+				7A1B10022FA1000000000002 /* DelaydWidget */,
+				2505AF822F910C9C00D10062 /* DelaydTests */,
+				2505AF8C2F910C9C00D10062 /* DelaydUITests */,
+				2505AF732F910C9B00D10062 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2505AF732F910C9B00D10062 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2505AF722F910C9B00D10062 /* Delayd.app */,
+				7A1B10012FA1000000000001 /* DelaydWidget.appex */,
+				2505AF7F2F910C9C00D10062 /* DelaydTests.xctest */,
+				2505AF892F910C9C00D10062 /* DelaydUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2505AF712F910C9B00D10062 /* Delayd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2505AF932F910C9C00D10062 /* Build configuration list for PBXNativeTarget "Delayd" */;
+			buildPhases = (
+				2505AF6E2F910C9B00D10062 /* Sources */,
+				2505AF6F2F910C9B00D10062 /* Frameworks */,
+				2505AF702F910C9B00D10062 /* Resources */,
+				7A1B100C2FA100000000000C /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7A1B100B2FA100000000000B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				2505AF742F910C9B00D10062 /* Delayd */,
+			);
+			name = Delayd;
+			packageProductDependencies = (
+				AA1234560001000000000001 /* Lottie */,
+				BB1234560001000000000004 /* RevenueCat */,
+				BB1234560001000000000005 /* RevenueCatUI */,
+			);
+			productName = Delayd;
+			productReference = 2505AF722F910C9B00D10062 /* Delayd.app */;
+			productType = "com.apple.product-type.application";
+		};
+		2505AF7E2F910C9C00D10062 /* DelaydTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2505AF962F910C9C00D10062 /* Build configuration list for PBXNativeTarget "DelaydTests" */;
+			buildPhases = (
+				2505AF7B2F910C9C00D10062 /* Sources */,
+				2505AF7C2F910C9C00D10062 /* Frameworks */,
+				2505AF7D2F910C9C00D10062 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2505AF812F910C9C00D10062 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				2505AF822F910C9C00D10062 /* DelaydTests */,
+			);
+			name = DelaydTests;
+			packageProductDependencies = (
+			);
+			productName = DelaydTests;
+			productReference = 2505AF7F2F910C9C00D10062 /* DelaydTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		2505AF882F910C9C00D10062 /* DelaydUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2505AF992F910C9C00D10062 /* Build configuration list for PBXNativeTarget "DelaydUITests" */;
+			buildPhases = (
+				2505AF852F910C9C00D10062 /* Sources */,
+				2505AF862F910C9C00D10062 /* Frameworks */,
+				2505AF872F910C9C00D10062 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2505AF8B2F910C9C00D10062 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				2505AF8C2F910C9C00D10062 /* DelaydUITests */,
+			);
+			name = DelaydUITests;
+			packageProductDependencies = (
+			);
+			productName = DelaydUITests;
+			productReference = 2505AF892F910C9C00D10062 /* DelaydUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		7A1B10062FA1000000000006 /* DelaydWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A1B10092FA1000000000009 /* Build configuration list for PBXNativeTarget "DelaydWidget" */;
+			buildPhases = (
+				7A1B10032FA1000000000003 /* Sources */,
+				7A1B10042FA1000000000004 /* Frameworks */,
+				7A1B10052FA1000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7A1B10022FA1000000000002 /* DelaydWidget */,
+			);
+			name = DelaydWidget;
+			packageProductDependencies = (
+			);
+			productName = DelaydWidget;
+			productReference = 7A1B10012FA1000000000001 /* DelaydWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2505AF6A2F910C9B00D10062 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					2505AF712F910C9B00D10062 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					2505AF7E2F910C9C00D10062 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 2505AF712F910C9B00D10062;
+					};
+					2505AF882F910C9C00D10062 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 2505AF712F910C9B00D10062;
+					};
+					7A1B10062FA1000000000006 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+				};
+			};
+			buildConfigurationList = 2505AF6D2F910C9B00D10062 /* Build configuration list for PBXProject "Delayd" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 2505AF692F910C9B00D10062;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA1234560001000000000002 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+				BB1234560001000000000003 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 2505AF732F910C9B00D10062 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2505AF712F910C9B00D10062 /* Delayd */,
+				7A1B10062FA1000000000006 /* DelaydWidget */,
+				2505AF7E2F910C9C00D10062 /* DelaydTests */,
+				2505AF882F910C9C00D10062 /* DelaydUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2505AF702F910C9B00D10062 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2505AF7D2F910C9C00D10062 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2505AF872F910C9C00D10062 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A1B10052FA1000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2505AF6E2F910C9B00D10062 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2505AF7B2F910C9C00D10062 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2505AF852F910C9C00D10062 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A1B10032FA1000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2505AF812F910C9C00D10062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2505AF712F910C9B00D10062 /* Delayd */;
+			targetProxy = 2505AF802F910C9C00D10062 /* PBXContainerItemProxy */;
+		};
+		2505AF8B2F910C9C00D10062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2505AF712F910C9B00D10062 /* Delayd */;
+			targetProxy = 2505AF8A2F910C9C00D10062 /* PBXContainerItemProxy */;
+		};
+		7A1B100B2FA100000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A1B10062FA1000000000006 /* DelaydWidget */;
+			targetProxy = 7A1B100A2FA100000000000A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2505AF912F910C9C00D10062 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		2505AF922F910C9C00D10062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		2505AF942F910C9C00D10062 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Delayd/Delayd.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Delayd/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LM_FILTER_WARNINGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.droidates.Delayd;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2505AF952F910C9C00D10062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Delayd/Delayd.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Delayd/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LM_FILTER_WARNINGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.droidates.Delayd;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		2505AF972F910C9C00D10062 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.droidates.DelaydTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Delayd.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Delayd";
+			};
+			name = Debug;
+		};
+		2505AF982F910C9C00D10062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.droidates.DelaydTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Delayd.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Delayd";
+			};
+			name = Release;
+		};
+		2505AF9A2F910C9C00D10062 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.droidates.DelaydUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Delayd;
+			};
+			name = Debug;
+		};
+		2505AF9B2F910C9C00D10062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.droidates.DelaydUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Delayd;
+			};
+			name = Release;
+		};
+		7A1B10072FA1000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = DelaydWidget/DelaydWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DelaydWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.droidates.Delayd.DelaydWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7A1B10082FA1000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = DelaydWidget/DelaydWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2MS5KVQR7;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DelaydWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.droidates.Delayd.DelaydWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2505AF6D2F910C9B00D10062 /* Build configuration list for PBXProject "Delayd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2505AF912F910C9C00D10062 /* Debug */,
+				2505AF922F910C9C00D10062 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2505AF932F910C9C00D10062 /* Build configuration list for PBXNativeTarget "Delayd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2505AF942F910C9C00D10062 /* Debug */,
+				2505AF952F910C9C00D10062 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2505AF962F910C9C00D10062 /* Build configuration list for PBXNativeTarget "DelaydTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2505AF972F910C9C00D10062 /* Debug */,
+				2505AF982F910C9C00D10062 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2505AF992F910C9C00D10062 /* Build configuration list for PBXNativeTarget "DelaydUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2505AF9A2F910C9C00D10062 /* Debug */,
+				2505AF9B2F910C9C00D10062 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A1B10092FA1000000000009 /* Build configuration list for PBXNativeTarget "DelaydWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A1B10072FA1000000000007 /* Debug */,
+				7A1B10082FA1000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA1234560001000000000002 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.6.0;
+			};
+		};
+		BB1234560001000000000003 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.14.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA1234560001000000000001 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA1234560001000000000002 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		BB1234560001000000000004 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BB1234560001000000000003 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+		BB1234560001000000000005 /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BB1234560001000000000003 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCatUI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 2505AF6A2F910C9B00D10062 /* Project object */;
+}
