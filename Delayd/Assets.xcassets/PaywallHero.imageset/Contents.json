@@ -4,6 +4,16 @@
       "filename" : "PaywallHero.png",
       "idiom" : "universal",
       "scale" : "1x"
+    },
+    {
+      "filename" : "PaywallHero@2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "PaywallHero@3x.png",
+      "idiom" : "universal",
+      "scale" : "3x"
     }
   ],
   "info" : {

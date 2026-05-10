@@ -17,6 +17,12 @@ struct BackwardProgressBar: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let previousWidth = LayoutGuard.dimension(proxy.size.width * clampedPrevious, name: "BackwardProgressBar.previousWidth")
+            let trailWidth = LayoutGuard.dimension(proxy.size.width * (clampedPrevious - clampedCurrent), name: "BackwardProgressBar.trailWidth")
+            let activeWidth = LayoutGuard.dimension(
+                proxy.size.width * LayoutGuard.unit(displayedProgress, name: "BackwardProgressBar.displayedProgress"),
+                name: "BackwardProgressBar.activeWidth"
+            )
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(accentColor.opacity(0.14))
@@ -24,18 +30,18 @@ struct BackwardProgressBar: View {
                 if showGhostTrail, clampedPrevious > clampedCurrent {
                     Capsule()
                         .fill(accentColor.opacity(0.18))
-                        .frame(width: proxy.size.width * clampedPrevious)
+                        .frame(width: previousWidth)
                         .overlay(alignment: .trailing) {
                             Rectangle()
                                 .fill(AppColors.negative.opacity(0.30))
-                                .frame(width: max(0, proxy.size.width * (clampedPrevious - clampedCurrent)))
+                                .frame(width: trailWidth)
                         }
                         .opacity(showGhostTrail ? 1 : 0)
                 }
 
                 Capsule()
                     .fill(accentColor)
-                    .frame(width: proxy.size.width * min(max(displayedProgress, 0), 1))
+                    .frame(width: activeWidth)
             }
         }
         .frame(height: 10)

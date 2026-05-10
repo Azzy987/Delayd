@@ -9,7 +9,10 @@ final class HomeViewModel {
     var recentImpacts: [HistoryImpact]
     var savedThisMonth: Double
     var savedDeltaText: String?
+    var spentThisMonth: Double
     var delayedThisMonth: Int
+    var delayedEntriesThisMonth: [HistoryImpact]
+    var savedEntriesThisMonth: [HomeSavedEntry]
     var insight: String
     /// Last 7 daily delay totals (oldest → newest). Drives the WeeklyPulse
     /// sparkline. Always 7 entries; days with no expenses are zero.
@@ -21,6 +24,7 @@ final class HomeViewModel {
     /// Rupees moved into the active goal in the current calendar month.
     /// Drives the "protected your dream" pulse copy.
     var protectedThisMonth: Double
+    var goalPaceWarning: String?
     var weeklyRecap: String
     var unreadNotificationCount: Int
     var hasLoaded: Bool
@@ -30,11 +34,15 @@ final class HomeViewModel {
         recentImpacts: [HistoryImpact] = [],
         savedThisMonth: Double = 0,
         savedDeltaText: String? = nil,
+        spentThisMonth: Double = 0,
         delayedThisMonth: Int = 0,
+        delayedEntriesThisMonth: [HistoryImpact] = [],
+        savedEntriesThisMonth: [HomeSavedEntry] = [],
         insight: String = "Skipping this 4x/month would put your goal 8 days closer",
         weeklyPulse: [Int] = Array(repeating: 0, count: 7),
         previousWeeklyPulse: [Int] = Array(repeating: 0, count: 7),
         protectedThisMonth: Double = 0,
+        goalPaceWarning: String? = nil,
         weeklyRecap: String = "No weekly recap yet.",
         unreadNotificationCount: Int = 0,
         hasLoaded: Bool = false
@@ -43,11 +51,15 @@ final class HomeViewModel {
         self.recentImpacts = recentImpacts
         self.savedThisMonth = savedThisMonth
         self.savedDeltaText = savedDeltaText
+        self.spentThisMonth = spentThisMonth
         self.delayedThisMonth = delayedThisMonth
+        self.delayedEntriesThisMonth = delayedEntriesThisMonth
+        self.savedEntriesThisMonth = savedEntriesThisMonth
         self.insight = insight
         self.weeklyPulse = weeklyPulse
         self.previousWeeklyPulse = previousWeeklyPulse
         self.protectedThisMonth = protectedThisMonth
+        self.goalPaceWarning = goalPaceWarning
         self.weeklyRecap = weeklyRecap
         self.unreadNotificationCount = unreadNotificationCount
         self.hasLoaded = hasLoaded
@@ -71,6 +83,10 @@ final class HomeViewModel {
         "\(delayedThisMonth) days"
     }
 
+    var spentThisMonthText: String {
+        CurrencyFormatter.format(spentThisMonth, currencyCode: currencyCode)
+    }
+
     func load(modelContainer: ModelContainer, month: Date = .now) async {
         let goalRepository = GoalRepository(modelContainer: modelContainer)
         let expenseRepository = ExpenseRepository(modelContainer: modelContainer)
@@ -80,19 +96,38 @@ final class HomeViewModel {
         let settingsSnapshot = await settingsRepository.fetchSnapshot()
         let settings = await settingsRepository.fetch()
         let refreshedGoals = await goalRepository.fetchActive()
-        let expenses = await expenseRepository.fetchRecentSnapshots(limit: 5)
         let monthInterval = Calendar.current.dateInterval(of: .month, for: month)
         let monthContributions = await contributionRepository.fetchAllSnapshots(in: monthInterval)
-        let delayedDaysByGoal = await expenseRepository.delayDaysByGoal()
+        let delayedDaysByGoal = await expenseRepository.totalHistoricalDelayDaysByGoal()
         let calculator = DelayCalculator()
 
         let loadedCurrencyCode = settingsSnapshot.defaultCurrency
-        let activeGoal = refreshedGoals.first
+        let netStatusByGoal = await contributionRepository.netStatusByGoal(
+            totalDelayDaysByGoal: delayedDaysByGoal,
+            monthlySavingsTarget: settings.monthlySavingsTarget
+        )
+        let activeGoal = refreshedGoals.first { $0.id == settingsSnapshot.defaultGoalId } ?? refreshedGoals.first
+        let activeGoalNetStatus = activeGoal.flatMap { netStatusByGoal[$0.id] } ?? .onPace
         let loadedActiveGoal = activeGoal.map {
-            PlanGoal(goal: $0, delayedDays: delayedDaysByGoal[$0.id] ?? 0, currencyCode: loadedCurrencyCode)
+            return PlanGoal(
+                goal: $0,
+                delayedDays: activeGoalNetStatus.delayedDays,
+                aheadDays: activeGoalNetStatus.aheadDays,
+                currencyCode: loadedCurrencyCode
+            )
         }
 
-        let loadedRecentImpacts = expenses.map { expense in
+        let allExpenses = await expenseRepository.fetchAllSnapshots(in: nil)
+        let monthStart = monthInterval?.start ?? .now
+        let monthEnd = monthInterval?.end ?? .now
+        let timelineExpenses = allExpenses
+            .filter { expense in
+                guard expense.occurredAt >= monthStart && expense.occurredAt < monthEnd else { return false }
+                guard let activeGoal else { return true }
+                return expense.goalId == activeGoal.id
+            }
+            .sorted { $0.occurredAt > $1.occurredAt }
+        let loadedRecentImpacts = timelineExpenses.prefix(5).map { expense in
             let fallbackGoal = refreshedGoals.first ?? .mockBali
             let category = expense.goalCategory ?? fallbackGoal.category
             let goalName = expense.goalName ?? fallbackGoal.name
@@ -114,7 +149,6 @@ final class HomeViewModel {
         // Compute last-7-days pulse: oldest → newest. Group all logged
         // expenses (not just the recent 5 above) by day, convert each day's
         // total into delay days, and zero-fill missing days.
-        let allExpenses = await expenseRepository.fetchAllSnapshots(in: nil)
         let loadedWeeklyPulse = Self.weeklyPulse(
             from: allExpenses,
             monthlySavingsTarget: settings.monthlySavingsTarget,
@@ -134,8 +168,6 @@ final class HomeViewModel {
             currencyCode: loadedCurrencyCode
         )
 
-        let monthStart = monthInterval?.start ?? .now
-        let monthEnd = monthInterval?.end ?? .now
         let activeGoalMonthContributions = monthContributions.filter { contribution in
             contribution.goalId == activeGoal?.id
         }
@@ -157,15 +189,79 @@ final class HomeViewModel {
             loadedSavedDeltaText = nil
         }
         let loadedDelayedThisMonth = allExpenses
-            .filter { $0.occurredAt >= monthStart && $0.occurredAt < monthEnd }
+            .filter { expense in
+                guard expense.occurredAt >= monthStart && expense.occurredAt < monthEnd else { return false }
+                guard let activeGoal else { return true }
+                return expense.goalId == activeGoal.id
+            }
             .reduce(0) { total, expense in
                 total + calculator.delayDays(
                     forExpense: Decimal(expense.amount),
                     monthlySavingsTarget: Decimal(settings.monthlySavingsTarget)
                 )
             }
+        let loadedSpentThisMonth = allExpenses
+            .filter { expense in
+                guard expense.occurredAt >= monthStart && expense.occurredAt < monthEnd else { return false }
+                guard let activeGoal else { return true }
+                return expense.goalId == activeGoal.id
+            }
+            .reduce(0) { $0 + $1.amount }
+        let loadedDelayedEntriesThisMonth = allExpenses
+            .filter { expense in
+                guard expense.occurredAt >= monthStart && expense.occurredAt < monthEnd else { return false }
+                guard let activeGoal else { return true }
+                return expense.goalId == activeGoal.id
+            }
+            .sorted { $0.occurredAt > $1.occurredAt }
+            .map { expense in
+                let fallbackGoal = refreshedGoals.first ?? .mockBali
+                let category = expense.goalCategory ?? fallbackGoal.category
+                let goalName = expense.goalName ?? fallbackGoal.name
+                let delayDays = calculator.delayDays(
+                    forExpense: Decimal(expense.amount),
+                    monthlySavingsTarget: Decimal(settings.monthlySavingsTarget)
+                )
+                return HistoryImpact(
+                    expenseId: expense.id,
+                    category: category,
+                    expenseIconSystemImage: Self.expenseIcon(for: expense),
+                    merchantName: expense.displayName,
+                    goalName: goalName,
+                    delayText: "\(delayDays) \(delayDays == 1 ? "day" : "days")",
+                    amountText: CurrencyFormatter.formatNegative(expense.amount, currencyCode: loadedCurrencyCode),
+                    occurredAt: expense.occurredAt,
+                    amount: expense.amount,
+                    delayDays: delayDays
+                )
+            }
+        let loadedSavedEntriesThisMonth = activeGoalMonthContributions
+            .sorted { $0.occurredAt > $1.occurredAt }
+            .map { contribution in
+                HomeSavedEntry(
+                    id: contribution.id,
+                    amount: contribution.amount,
+                    amountText: CurrencyFormatter.format(contribution.amount, currencyCode: loadedCurrencyCode),
+                    locationTitle: contribution.location.title,
+                    locationSymbol: contribution.location.symbolName,
+                    occurredAt: contribution.occurredAt,
+                    isStartingBalance: (contribution.note ?? "")
+                        .localizedCaseInsensitiveContains("starting protected amount")
+                )
+            }
 
         let loadedProtectedThisMonth = loadedSavedThisMonth
+        let loadedGoalPaceWarning = activeGoal.flatMap { goal in
+            GoalFeasibility.evaluate(
+                targetAmount: goal.targetAmount,
+                protectedAmount: goal.currentAmount,
+                monthlyTarget: settings.monthlySavingsTarget,
+                deadline: goal.deadline,
+                currencyCode: loadedCurrencyCode
+            )
+        }.flatMap { result in
+            result.isPossible ? nil : result.message
+        }
 
         // Build the rotating Smart Insight context from real data so the
         // banner cycles through the three V1 variants (skip, %-budget, slip)
@@ -174,6 +270,7 @@ final class HomeViewModel {
             allExpenses: allExpenses,
             weeklyPulse: loadedWeeklyPulse,
             activeGoal: activeGoal,
+            activeGoalNetStatus: activeGoalNetStatus,
             monthlySavingsTarget: settings.monthlySavingsTarget,
             calculator: calculator
         )
@@ -186,10 +283,14 @@ final class HomeViewModel {
             self.recentImpacts = loadedRecentImpacts
             self.savedThisMonth = loadedSavedThisMonth
             self.savedDeltaText = loadedSavedDeltaText
+            self.spentThisMonth = loadedSpentThisMonth
             self.delayedThisMonth = loadedDelayedThisMonth
+            self.delayedEntriesThisMonth = loadedDelayedEntriesThisMonth
+            self.savedEntriesThisMonth = loadedSavedEntriesThisMonth
             self.weeklyPulse = loadedWeeklyPulse
             self.previousWeeklyPulse = loadedPreviousWeeklyPulse
             self.protectedThisMonth = loadedProtectedThisMonth
+            self.goalPaceWarning = loadedGoalPaceWarning
             self.weeklyRecap = loadedWeeklyRecap
             self.unreadNotificationCount = loadedUnreadNotificationCount
             self.insight = loadedInsight
@@ -212,6 +313,7 @@ final class HomeViewModel {
         allExpenses: [ExpenseSnapshot],
         weeklyPulse: [Int],
         activeGoal: Goal?,
+        activeGoalNetStatus: NetDelayStatus,
         monthlySavingsTarget: Double,
         calculator: DelayCalculator
     ) -> ToneCopy.InsightContext {
@@ -278,6 +380,8 @@ final class HomeViewModel {
             weeklyDelayPercent: weeklyPercent,
             slippedGoalName: slipGoalName,
             slippedGoalDays: slipDays,
+            isAhead: activeGoalNetStatus.isAhead,
+            aheadDays: activeGoalNetStatus.aheadDays,
             hasActivity: !weeklyExpenses.isEmpty
         )
     }
@@ -315,7 +419,7 @@ final class HomeViewModel {
         from expenses: [ExpenseSnapshot],
         monthlySavingsTarget: Double,
         calculator: DelayCalculator,
-        currencyCode: String = CurrencyFormatter.localeDefaultCurrencyCode
+        currencyCode: String
     ) -> String {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
@@ -355,7 +459,7 @@ final class HomeViewModel {
         if label.contains("coffee") || label.contains("cafe") || label.contains("tea") {
             return "cup.and.saucer.fill"
         }
-        if label.contains("dinner") || label.contains("lunch") || label.contains("food") || label.contains("restaurant") {
+        if label.contains("dinner") || label.contains("lunch") || label.contains("food") || label.contains("restaurant") || label.contains("dosa") || label.contains("idli") || label.contains("biryani") || label.contains("pizza") || label.contains("burger") {
             return "fork.knife"
         }
         if label.contains("shopping") || label.contains("shop") || label.contains("store") {
@@ -384,12 +488,23 @@ final class HomeViewModel {
     }
 }
 
+struct HomeSavedEntry: Identifiable, Equatable {
+    let id: UUID
+    let amount: Double
+    let amountText: String
+    let locationTitle: String
+    let locationSymbol: String
+    let occurredAt: Date
+    let isStartingBalance: Bool
+}
+
 extension HomeViewModel {
     static func mock() -> HomeViewModel {
         HomeViewModel(
             activeGoal: PlanGoal.mockGoals[0],
             recentImpacts: HistoryDaySection.mockSections[0].impacts,
             savedThisMonth: 25_000,
+            spentThisMonth: 8_400,
             delayedThisMonth: 4,
             weeklyPulse: [0, 2, 1, 3, 1, 5, 2],
             previousWeeklyPulse: [3, 4, 2, 5, 3, 6, 4],

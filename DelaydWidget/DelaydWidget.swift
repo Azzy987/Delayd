@@ -15,6 +15,7 @@ struct DelaydWidgetEntry: TimelineEntry {
     let date: Date
     let goalName: String
     let goalEmoji: String
+    let goalIllustrationAssetName: String
     let progress: Double  // 0…1
     let daysDelayed: Int
     let savedAmount: Double
@@ -24,6 +25,7 @@ struct DelaydWidgetEntry: TimelineEntry {
         date: .now,
         goalName: "Bali trip",
         goalEmoji: "🏝️",
+        goalIllustrationAssetName: "CategoryTravel",
         progress: 0.42,
         daysDelayed: 3,
         savedAmount: 50_400,
@@ -73,6 +75,7 @@ struct DelaydWidgetProvider: TimelineProvider {
 struct DelaydWidgetEntryDTO: Codable {
     let goalName: String
     let goalEmoji: String
+    let goalIllustrationAssetName: String
     let progress: Double
     let daysDelayed: Int
     let savedAmount: Double
@@ -84,6 +87,7 @@ struct DelaydWidgetEntryDTO: Codable {
             date: writtenAt,
             goalName: goalName,
             goalEmoji: goalEmoji,
+            goalIllustrationAssetName: goalIllustrationAssetName,
             progress: progress,
             daysDelayed: daysDelayed,
             savedAmount: savedAmount,
@@ -115,42 +119,53 @@ private struct SmallWidgetView: View {
     let entry: DelaydWidgetEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text(entry.goalEmoji)
-                    .font(.system(size: 18))
-                Text(entry.goalName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-            }
-            .foregroundStyle(.white)
+        ZStack(alignment: .bottomLeading) {
+            goalIllustration(size: 66)
+                .opacity(0.94)
+                .offset(x: 78, y: -54)
 
-            Spacer(minLength: 0)
-
-            Text("\(entry.daysDelayed)")
-                .font(.system(size: 38, weight: .bold, design: .rounded))
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    goalIllustration(size: 24)
+                    Text(entry.goalName)
+                        .font(.system(size: 13, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
                 .foregroundStyle(.white)
 
-            Text("days delayed")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.76))
-                .lineLimit(1)
+                Spacer(minLength: 0)
 
-            WidgetProgressBar(progress: entry.progress)
+                Text("\(entry.daysDelayed) day\(entry.daysDelayed == 1 ? "" : "s")")
+                    .font(.system(size: 27, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.56)
+                    .lineLimit(1)
+                    .foregroundStyle(.white)
 
-            Text("\(entry.currencySymbol)\(Int(entry.savedAmount)) protected")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.72))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                Text("delayed")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.76))
+                    .lineLimit(1)
+
+                WidgetProgressBar(progress: entry.progress)
+
+                Text(protectedText)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.78))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(12)
-        .widgetURL(URL(string: "delayd://history"))
+        .widgetURL(URL(string: "delayd://home"))
         .containerBackground(for: .widget) {
             WidgetBackground()
         }
+    }
+
+    private var protectedText: String {
+        "\(entry.currencySymbol)\(Int(entry.savedAmount)) protected toward this dream"
     }
 }
 
@@ -158,17 +173,18 @@ private struct MediumWidgetView: View {
     let entry: DelaydWidgetEntry
 
     var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text(entry.goalEmoji).font(.system(size: 20))
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    goalIllustration(size: 28)
                     Text(entry.goalName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 15, weight: .bold))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.72)
                 }
                 .foregroundStyle(.white)
 
-                Text("Trip delayed by")
+                Text("Dream delayed by")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.72))
 
@@ -179,31 +195,85 @@ private struct MediumWidgetView: View {
                     .foregroundStyle(.white)
 
                 Text("\(entry.currencySymbol)\(Int(entry.savedAmount)) protected toward this dream")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.74))
-                    .lineLimit(2)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.78))
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.82)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                WidgetProgressBar(progress: entry.progress)
+                    .padding(.top, 2)
             }
 
             Spacer(minLength: 4)
 
-            VStack(spacing: 8) {
-                Gauge(value: entry.progress) {
-                    EmptyView()
-                }
-                .gaugeStyle(.accessoryCircularCapacity)
-                .tint(.white)
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.white.opacity(0.14))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(.white.opacity(0.18), lineWidth: 1)
+                    }
 
-                Text("\(Int((entry.progress * 100).rounded()))%")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.82))
+                goalIllustration(size: 96)
+                    .padding(.bottom, 22)
+
+                Text("\(progressPercent)% protected")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.24), in: Capsule())
+                    .padding(.bottom, 8)
             }
-            .frame(width: 72)
+            .frame(width: 112, height: 120)
         }
         .padding(14)
-        .widgetURL(URL(string: "delayd://history"))
+        .widgetURL(URL(string: "delayd://home"))
         .containerBackground(for: .widget) {
             WidgetBackground()
         }
+    }
+
+    private var progressPercent: Int {
+        Int((min(max(entry.progress, 0), 1) * 100).rounded())
+    }
+}
+
+private struct GoalArtworkView: View {
+    let imageName: String
+    let size: CGFloat
+
+    var body: some View {
+        let cornerRadius = max(10, size * 0.22)
+
+        Image(imageName)
+            .resizable()
+            .scaledToFit()
+            .padding(max(3, size * 0.08))
+            .frame(width: size, height: size)
+            .background(.white.opacity(0.18), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(.white.opacity(0.20), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 5)
+    }
+}
+
+private extension SmallWidgetView {
+    @ViewBuilder
+    func goalIllustration(size: CGFloat) -> some View {
+        GoalArtworkView(imageName: entry.goalIllustrationAssetName, size: size)
+    }
+}
+
+private extension MediumWidgetView {
+    @ViewBuilder
+    func goalIllustration(size: CGFloat) -> some View {
+        GoalArtworkView(imageName: entry.goalIllustrationAssetName, size: size)
     }
 }
 
@@ -228,6 +298,12 @@ private struct WidgetBackground: View {
                 .fill(.black.opacity(0.10))
                 .frame(width: 150, height: 150)
                 .offset(x: -82, y: 76)
+
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(.white.opacity(0.08))
+                .frame(width: 170, height: 86)
+                .rotationEffect(.degrees(-18))
+                .offset(x: 88, y: 60)
         }
     }
 }

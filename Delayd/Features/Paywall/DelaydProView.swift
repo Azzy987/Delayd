@@ -41,15 +41,20 @@ struct DelaydProView: View {
     var onClose: (() -> Void)?
     var onSubscribe: ((Plan) -> Void)?
     var onRestore: (() -> Void)?
+    var onManageSubscription: (() -> Void)?
 
     @State private var selectedPlan: Plan = .lifetime
     @State private var showMore = false
     @State private var remaining: TimeInterval = (19 * 3600) + (2 * 60) + 40
     @State private var isPurchasing = false
     @State private var isRestoring = false
+    @State private var purchaseCompleted = false
     @State private var purchaseError: String?
+    @State private var planPackages: [Plan: Package] = [:]
+    @State private var isProUnlocked = ProEntitlementService.isUnlocked
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.openURL) private var openURL
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -64,6 +69,34 @@ struct DelaydProView: View {
     private let extraFeatures: [ProFeature] = []
 
     var body: some View {
+        Group {
+            if isProUnlocked || purchaseCompleted {
+                activeMembershipView
+            } else {
+                purchaseView
+            }
+        }
+        .task {
+            isProUnlocked = await ProEntitlementService.refreshCustomerInfo()
+            if !isProUnlocked {
+                await loadOfferings()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .delaydProEntitlementChanged)) { note in
+            if let unlocked = note.object as? Bool {
+                isProUnlocked = unlocked
+            } else {
+                isProUnlocked = ProEntitlementService.isUnlocked
+            }
+        }
+        .onDisappear {
+            Task {
+                _ = await ProEntitlementService.refreshCustomerInfo()
+            }
+        }
+    }
+
+    private var purchaseView: some View {
         ZStack(alignment: .bottom) {
             AppColors.background(for: colorScheme)
                 .ignoresSafeArea()
@@ -71,10 +104,9 @@ struct DelaydProView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: AppSpacing.lg) {
                     header
-                        .padding(.top, AppSpacing.md)
+                        .padding(.top, AppSpacing.xs)
 
                     sparkleIcon
-                        .padding(.top, AppSpacing.sm)
 
                     VStack(spacing: AppSpacing.xs) {
                         Text(entryPoint.title)
@@ -103,13 +135,128 @@ struct DelaydProView: View {
         .onReceive(timer) { _ in
             if remaining > 0 { remaining -= 1 }
         }
-        .task {
-            await ProEntitlementService.refreshCustomerInfo()
-        }
-        .onDisappear {
-            Task {
-                await ProEntitlementService.refreshCustomerInfo()
+    }
+
+    private var activeMembershipView: some View {
+        ZStack {
+            AppColors.background(for: colorScheme)
+                .ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: AppSpacing.lg) {
+                    header
+                        .padding(.horizontal, AppSpacing.lg)
+                        .padding(.top, AppSpacing.md)
+
+                    Image("PaywallHero")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: AppRadius.xl, style: .continuous))
+                        .shadow(
+                            color: AppColors.purplePrimary.opacity(colorScheme == .dark ? 0.14 : 0.18),
+                            radius: 20,
+                            x: 0,
+                            y: 12
+                        )
+                        .padding(.top, AppSpacing.xs)
+
+                    VStack(spacing: AppSpacing.xs) {
+                        Text("Delayd Pro Active")
+                            .font(.system(size: 25, weight: .bold))
+                            .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                        Text("Your premium dream-protection tools are unlocked.")
+                            .font(AppTypography.callout)
+                            .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, AppSpacing.lg)
+
+                    activeFeatureCard
+                        .padding(.horizontal, AppSpacing.lg)
+
+                    activePlanDetailsCard
+                        .padding(.horizontal, AppSpacing.lg)
+
+                    Button(role: .destructive) {
+                        openSubscriptionManagement()
+                    } label: {
+                        Text("Cancel My Subscription")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(AppColors.negative, in: RoundedRectangle(cornerRadius: AppRadius.lg))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, AppSpacing.lg)
+
+                    Text("Subscriptions are managed through your Apple ID. Lifetime purchases do not renew.")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, AppSpacing.xl)
+
+                    footerLinks
+                        .padding(.bottom, AppSpacing.xl)
+                }
             }
+        }
+    }
+
+    private var activeFeatureCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            Text("Included with Delayd Pro")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+
+            VStack(spacing: AppSpacing.sm) {
+                ForEach(primaryFeatures) { feature in
+                    featureRow(feature, dimmed: false)
+                }
+            }
+        }
+        .padding(AppSpacing.lg)
+        .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.xl))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.xl)
+                .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+        }
+    }
+
+    private var activePlanDetailsCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            HStack(spacing: AppSpacing.sm) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(AppColors.positive)
+                Text("Plan details")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+            }
+
+            planDetailRow(title: "Plan", value: activePlanTitle)
+            planDetailRow(title: "Status", value: "Active")
+            planDetailRow(title: activePlanTitle == "Lifetime" ? "Access" : "Renews", value: activeRenewalText)
+        }
+        .padding(AppSpacing.lg)
+        .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.xl))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.xl)
+                .stroke(AppColors.positive.opacity(colorScheme == .dark ? 0.30 : 0.22), lineWidth: 1)
+        }
+    }
+
+    private func planDetailRow(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(AppTypography.callout)
+                .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+            Spacer(minLength: AppSpacing.md)
+            Text(value)
+                .font(.system(size: 14, weight: .semibold, design: title == "Plan" ? .default : .monospaced))
+                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                .multilineTextAlignment(.trailing)
         }
     }
 
@@ -250,10 +397,110 @@ struct DelaydProView: View {
         }
     }
 
+    @ViewBuilder
     private var planCards: some View {
-        VStack(spacing: AppSpacing.sm) {
-            lifetimeCard
-            monthlyCard
+        if purchaseCompleted || ProEntitlementService.isUnlocked {
+            VStack(spacing: AppSpacing.sm) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image("PaywallHero")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 54, height: 54)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(AppColors.positive)
+                            Text("Delayd Pro Active")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                        }
+
+                        Text("Plan: \(activePlanTitle)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+
+                        Text(validityText)
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.bottom, 2)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    successFeatureRow("Unlimited active dreams")
+                    successFeatureRow("Smart delay reminders and weekly recap")
+                    successFeatureRow("Hard-mode commitment prompts")
+                }
+                .padding(.leading, 4)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                    .stroke(AppColors.positive.opacity(0.28), lineWidth: 1)
+            }
+            .background(
+                AppColors.softPositiveBackground.opacity(colorScheme == .dark ? 0.22 : 1),
+                in: RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+            )
+        } else {
+            VStack(spacing: AppSpacing.sm) {
+                lifetimeCard
+                yearlyCard
+                monthlyCard
+            }
+        }
+    }
+
+    private func successFeatureRow(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(AppColors.positive)
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var activePlanTitle: String {
+        switch ProEntitlementService.activeProductIdentifier {
+        case ProEntitlementService.ProductID.lifetime: return "Lifetime"
+        case ProEntitlementService.ProductID.yearly: return "Yearly"
+        case ProEntitlementService.ProductID.monthly: return "Monthly"
+        default:
+            switch selectedPlan {
+            case .lifetime: return "Lifetime"
+            case .yearly: return "Yearly"
+            case .monthly: return "Monthly"
+            }
+        }
+    }
+
+    private var activeRenewalText: String {
+        if activePlanTitle == "Lifetime" {
+            return "Lifetime access"
+        }
+        guard let expiration = ProEntitlementService.activeExpirationDate else {
+            return "Renews automatically"
+        }
+        return expiration.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private var validityText: String {
+        switch selectedPlan {
+        case .lifetime:
+            return "Validity: Lifetime access (one-time purchase)."
+        case .yearly:
+            return "Validity: Active for 1 year. Renews yearly until cancelled."
+        case .monthly:
+            return "Validity: Active for 1 month. Renews monthly until cancelled."
         }
     }
 
@@ -287,16 +534,63 @@ struct DelaydProView: View {
                 }
 
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text("$29.99")
+                    Text(priceText(for: .lifetime, fallback: "$29.99"))
                         .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(AppColors.textPrimary(for: colorScheme))
 
-                    Text("Founding")
+                    Text(lifetimeSavingsText)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(AppColors.textPrimary(for: colorScheme), in: Capsule())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: 18))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(isSelected ? AppColors.purplePrimary : AppColors.border(for: colorScheme), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var yearlyCard: some View {
+        let isSelected = selectedPlan == .yearly
+
+        return Button(action: { selectedPlan = .yearly }) {
+            HStack(spacing: 14) {
+                radio(isSelected: isSelected)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Yearly")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+
+                    Text("Best value for consistent protection")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    (
+                        Text(priceText(for: .yearly, fallback: "$19.99 "))
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                        + Text("/Year")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                    )
+                    if let yearlySavingsText {
+                        Text(yearlySavingsText)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(AppColors.positive)
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -324,12 +618,14 @@ struct DelaydProView: View {
 
                 Spacer()
 
-                Text("$3.99 ")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(AppColors.textPrimary(for: colorScheme))
-                + Text("/Month")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                (
+                    Text(priceText(for: .monthly, fallback: "$2.99 "))
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                    + Text("/Month")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                )
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -369,13 +665,19 @@ struct DelaydProView: View {
 
     private var subscribeButton: some View {
         Button(action: {
+            if purchaseCompleted || ProEntitlementService.isUnlocked {
+                onSubscribe?(selectedPlan)
+                return
+            }
             Task { await purchaseSelectedPlan() }
         }) {
             HStack(spacing: 8) {
-                Text(isPurchasing ? "Connecting..." : entryPoint.buttonTitle)
+                Text(isPurchasing ? "Connecting..." : (purchaseCompleted ? "Continue" : entryPoint.buttonTitle))
                     .font(.system(size: 16, weight: .semibold))
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 14, weight: .semibold))
+                if !isPurchasing {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                }
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
@@ -390,18 +692,28 @@ struct DelaydProView: View {
     }
 
     private var footerLinks: some View {
-        HStack(spacing: AppSpacing.lg) {
-            Button(isRestoring ? "Restoring..." : "Restore Purchase") {
+        HStack(spacing: 16) {
+            Spacer(minLength: 0)
+
+            Button(isRestoring ? "Restoring..." : "Restore") {
                 Task { await restorePurchases() }
             }
+
             Text("·")
-            Button("Terms") {}
+
+            Link("Terms", destination: URL(string: "https://www.droidates.com/p/terms-of-use-delayd.html")!)
+
             Text("·")
-            Button("Privacy") {}
+
+            Link("Privacy", destination: URL(string: "https://www.droidates.com/p/privacy-policy-delayd.html")!)
+
+            Spacer(minLength: 0)
         }
         .font(.system(size: 11))
         .foregroundStyle(AppColors.textSecondary(for: colorScheme))
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .multilineTextAlignment(.center)
     }
 
     // MARK: - Helpers
@@ -421,16 +733,19 @@ struct DelaydProView: View {
         defer { isPurchasing = false }
 
         do {
-            let productID = ProEntitlementService.productID(for: selectedPlan)
-            let offerings = try await ProEntitlementService.offerings()
-            let packages = offerings.current?.availablePackages ?? []
-            guard let package = packages.first(where: { $0.storeProduct.productIdentifier == productID }) else {
+            if planPackages.isEmpty {
+                await loadOfferings()
+            }
+            guard let package = planPackages[selectedPlan] else {
                 purchaseError = "This plan is not available yet. Check the RevenueCat offering configuration."
                 return
             }
 
             if try await ProEntitlementService.purchase(package: package) {
-                onSubscribe?(selectedPlan)
+                purchaseCompleted = true
+                isProUnlocked = true
+            } else {
+                purchaseError = "Purchase completed, but Pro entitlement was not detected yet. Tap Restore."
             }
         } catch {
             purchaseError = error.localizedDescription
@@ -445,12 +760,77 @@ struct DelaydProView: View {
 
         do {
             if try await ProEntitlementService.restorePurchases() {
+                purchaseCompleted = true
+                isProUnlocked = true
                 onRestore?()
             } else {
                 purchaseError = "No active Delayd Pro purchase was found for this Apple ID."
             }
         } catch {
             purchaseError = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func loadOfferings() async {
+        do {
+            let offerings = try await ProEntitlementService.offerings()
+            let packages = offerings.current?.availablePackages ?? []
+            var map: [Plan: Package] = [:]
+            for plan in [Plan.lifetime, .yearly, .monthly] {
+                let productID = ProEntitlementService.productID(for: plan)
+                if let pkg = packages.first(where: { $0.storeProduct.productIdentifier == productID }) {
+                    map[plan] = pkg
+                }
+            }
+            planPackages = map
+        } catch {
+            // Keep fallback price labels and surface purchase-time errors only.
+        }
+    }
+
+    private func priceText(for plan: Plan, fallback: String) -> String {
+        if let pkg = planPackages[plan] {
+            return pkg.storeProduct.localizedPriceString
+        }
+        return fallback
+    }
+
+    private var monthlyPriceValue: Decimal? {
+        planPackages[.monthly]?.storeProduct.price as Decimal?
+    }
+
+    private var yearlyPriceValue: Decimal? {
+        planPackages[.yearly]?.storeProduct.price as Decimal?
+    }
+
+    private var lifetimePriceValue: Decimal? {
+        planPackages[.lifetime]?.storeProduct.price as Decimal?
+    }
+
+    private var yearlySavingsText: String? {
+        guard let monthly = monthlyPriceValue, let yearly = yearlyPriceValue, monthly > 0 else { return nil }
+        let yearlyFromMonthly = monthly * 12
+        guard yearlyFromMonthly > yearly else { return nil }
+        let discount = NSDecimalNumber(decimal: ((yearlyFromMonthly - yearly) / yearlyFromMonthly) * 100).doubleValue
+        return "\(Int(discount.rounded()))% off vs monthly"
+    }
+
+    private var lifetimeSavingsText: String {
+        guard let monthly = monthlyPriceValue, let lifetime = lifetimePriceValue, monthly > 0 else { return "Founding" }
+        let fromMonthlyYear = monthly * 12
+        guard fromMonthlyYear > lifetime else { return "Founding" }
+        let discount = NSDecimalNumber(decimal: ((fromMonthlyYear - lifetime) / fromMonthlyYear) * 100).doubleValue
+        return "\(Int(discount.rounded()))% off"
+    }
+
+    private func openSubscriptionManagement() {
+        if let onManageSubscription {
+            onManageSubscription()
+            return
+        }
+        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+            openURL(url)
         }
     }
 }

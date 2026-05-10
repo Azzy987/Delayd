@@ -20,3 +20,11 @@ Delayd is a behavior-changing iOS app that reframes spending as time delayed fro
 1. Open `Delayd.xcodeproj` in Xcode.
 2. Select the `Delayd` scheme.
 3. Build and run on iOS 17+.
+
+## Founder Pricing Reference
+
+Current founder pricing targets (for internal reference):
+
+- `$2.99/month`
+- `$14.99/year`
+- `$24.99/lifetime`

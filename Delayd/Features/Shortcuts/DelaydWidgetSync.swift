@@ -22,6 +22,7 @@ enum DelaydWidgetSync {
     static func refresh(
         goalName: String,
         goalEmoji: String,
+        goalIllustrationAssetName: String,
         progress: Double,
         daysDelayed: Int,
         savedAmount: Double,
@@ -32,6 +33,7 @@ enum DelaydWidgetSync {
         let payload = WidgetEntryPayload(
             goalName: goalName,
             goalEmoji: goalEmoji,
+            goalIllustrationAssetName: goalIllustrationAssetName,
             progress: progress,
             daysDelayed: daysDelayed,
             savedAmount: savedAmount,
@@ -53,6 +55,7 @@ enum DelaydWidgetSync {
     private struct WidgetEntryPayload: Codable {
         let goalName: String
         let goalEmoji: String
+        let goalIllustrationAssetName: String
         let progress: Double
         let daysDelayed: Int
         let savedAmount: Double

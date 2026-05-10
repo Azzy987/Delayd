@@ -17,6 +17,7 @@ import SwiftData
 struct SavedHistorySheet: View {
     @State private var viewModel: SavedHistoryViewModel
     @State private var isGoalFilterPresented = false
+    @State private var selectedEntry: SavedHistoryEntry?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     let onClose: () -> Void
@@ -46,6 +47,10 @@ struct SavedHistorySheet: View {
 
                     filterBar
 
+                    if !viewModel.startingEntries.isEmpty {
+                        startingBalanceSection
+                    }
+
                     if viewModel.isEmpty {
                         EmptyStateCard(
                             systemImage: "checkmark.shield.fill",
@@ -54,7 +59,7 @@ struct SavedHistorySheet: View {
                             description: "Each Protect Dream entry will appear here with the date and the dream it pushed forward."
                         )
                     } else {
-                        ForEach(viewModel.sections) { section in
+                        ForEach(viewModel.transactionSections) { section in
                             daySection(section)
                         }
                     }
@@ -79,6 +84,10 @@ struct SavedHistorySheet: View {
                 }
             )
             .delaydPageSheet(detents: [.height(420), .medium])
+        }
+        .sheet(item: $selectedEntry) { entry in
+            SavedEntryDetailsSheet(entry: entry)
+                .delaydPageSheet(detents: [.height(420), .medium])
         }
     }
 
@@ -205,6 +214,40 @@ struct SavedHistorySheet: View {
 
     // MARK: - Day section
 
+    private var startingBalanceSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            HStack {
+                Text("Starting protected amount")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                Spacer()
+                Text("+\(viewModel.startingTotalText)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppColors.positive)
+            }
+            Text("Already saved when you set up Delayd")
+                .font(.system(size: 12))
+                .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+
+            VStack(spacing: 0) {
+                ForEach(Array(viewModel.startingEntries.enumerated()), id: \.element.id) { idx, entry in
+                    contributionRow(entry)
+                        .padding(.vertical, AppSpacing.sm)
+
+                    if idx < viewModel.startingEntries.count - 1 {
+                        Divider()
+                    }
+                }
+            }
+            .padding(.horizontal, AppSpacing.md)
+            .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.lg))
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.lg)
+                    .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+            }
+        }
+    }
+
     private func daySection(_ section: SavedDaySection) -> some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
             HStack {
@@ -237,42 +280,99 @@ struct SavedHistorySheet: View {
     }
 
     private func contributionRow(_ entry: SavedHistoryEntry) -> some View {
-        HStack(spacing: AppSpacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(AppColors.softPositiveBackground.opacity(colorScheme == .dark ? 0.22 : 1))
-                    .frame(width: 38, height: 38)
-                Image(systemName: entry.locationSymbol)
-                    .font(.system(size: 15, weight: .semibold))
+        Button {
+            selectedEntry = entry
+        } label: {
+            HStack(spacing: AppSpacing.md) {
+                GoalCategoryIcon(category: entry.goalCategory, size: 38, style: .standard)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.goalName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Image(systemName: entry.locationSymbol)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(AppColors.positive)
+                        Text(entry.subtitle)
+                    }
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Text(entry.amountText)
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppColors.positive)
             }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if entry.isDeletable {
+                Button(role: .destructive) {
+                    Task {
+                        await viewModel.delete(id: entry.id, modelContainer: modelContext.container)
+                    }
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
+    }
+}
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.goalName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(AppColors.textPrimary(for: colorScheme))
-                    .lineLimit(1)
-                Text(entry.subtitle)
-                    .font(.system(size: 12))
+private struct SavedEntryDetailsSheet: View {
+    let entry: SavedHistoryEntry
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            Text(entry.isStartingBalance ? "Starting Saved Amount" : "Protected Amount")
+                .font(AppTypography.title)
+                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+
+            VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                detailRow(title: "Dream", value: entry.goalName, systemImage: "target")
+                detailRow(title: "Amount", value: entry.amountText, systemImage: "indianrupeesign.circle")
+                detailRow(title: "Source", value: entry.locationTitle, systemImage: entry.locationSymbol)
+                detailRow(
+                    title: "Date",
+                    value: entry.occurredAt.formatted(date: .abbreviated, time: .shortened),
+                    systemImage: "calendar"
+                )
+            }
+
+            if entry.isStartingBalance {
+                Text("This amount was added during onboarding as already protected savings.")
+                    .font(AppTypography.caption)
                     .foregroundStyle(AppColors.textSecondary(for: colorScheme))
-                    .lineLimit(1)
             }
 
             Spacer(minLength: 0)
-
-            Text(entry.amountText)
-                .font(.system(size: 15, weight: .bold, design: .monospaced))
-                .foregroundStyle(AppColors.positive)
         }
-        .contentShape(Rectangle())
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                Task {
-                    await viewModel.delete(id: entry.id, modelContainer: modelContext.container)
-                }
-            } label: {
-                Label("Delete", systemImage: "trash")
+        .padding(AppSpacing.lg)
+        .background(AppColors.background(for: colorScheme).ignoresSafeArea())
+    }
+
+    private func detailRow(title: String, value: String, systemImage: String) -> some View {
+        HStack(spacing: AppSpacing.sm) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(AppColors.purplePrimary)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                Text(value)
+                    .font(AppTypography.bodyMedium)
+                    .foregroundStyle(AppColors.textPrimary(for: colorScheme))
             }
+            Spacer(minLength: 0)
         }
     }
 }

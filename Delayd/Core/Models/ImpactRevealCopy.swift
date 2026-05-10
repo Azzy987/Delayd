@@ -89,9 +89,18 @@ enum ImpactRevealCopy {
         monthlyTarget: Double,
         goalName: String
     ) -> String {
+        if let tiny = tinyImpactLine(
+            tone: tone,
+            amount: amount,
+            monthlyTarget: monthlyTarget,
+            goalName: goalName
+        ) {
+            return tiny
+        }
+
         let weightRatio = monthlyTarget > 0 ? amount / monthlyTarget : 0
         let severity = ImpactSeverity.classify(delayDays: days, weightRatio: weightRatio)
-        let candidates = lines(tone: tone, severity: severity)
+        let candidates = lines(tone: tone, severity: severity, days: days)
         guard !candidates.isEmpty else {
             return ToneCopy.delayReveal(tone: tone, days: max(days, 1), goalName: goalName)
         }
@@ -102,9 +111,40 @@ enum ImpactRevealCopy {
         return render(template, days: days, goalName: goalName)
     }
 
+    /// Tiny spends are better communicated as hours, not fractional days.
+    /// Also adds the key recurring-warning behavior cue.
+    private static func tinyImpactLine(
+        tone: DelaydTone,
+        amount: Double,
+        monthlyTarget: Double,
+        goalName: String
+    ) -> String? {
+        guard amount > 0, monthlyTarget > 0 else { return nil }
+        let ratio = amount / monthlyTarget
+        guard ratio < 0.01 else { return nil }
+
+        let dailyTarget = monthlyTarget / 30.0
+        guard dailyTarget > 0 else { return nil }
+        let hours = max(1, Int(round((amount / dailyTarget) * 24)))
+
+        switch tone {
+        case .motivational:
+            return "This spend moved \(goalName) by about \(hours)h. Tiny alone, but repeated spends can still slow the dream."
+        case .coach:
+            return "About \(hours)h impact on \(goalName). Small one-off, but repetition is where delay compounds."
+        case .neutral:
+            return "Estimated impact: ~\(hours)h on \(goalName). Single event is minor; repeated events increase delay."
+        case .toughLove:
+            return "Roughly \(hours)h on \(goalName). Feels tiny now — repeats are what quietly push deadlines."
+        case .drillSergeant:
+            return "~\(hours)h on \(goalName). Minor hit once, major drag if repeated. Keep it controlled."
+        }
+    }
+
     /// Total line count surfaced in Settings → Tone preview.
     static func totalLineCount(for tone: DelaydTone) -> Int {
-        ImpactSeverity.allCases.reduce(0) { $0 + lines(tone: tone, severity: $1).count }
+        let base = ImpactSeverity.allCases.reduce(0) { $0 + lines(tone: tone, severity: $1, days: 8).count }
+        return base + extremeMajorLines(for: tone).count + criticalMajorLines(for: tone).count
     }
 
     // MARK: - Template rendering
@@ -120,13 +160,42 @@ enum ImpactRevealCopy {
             .replacingOccurrences(of: "{goal}", with: goalName)
     }
 
-    private static func lines(tone: DelaydTone, severity: ImpactSeverity) -> [String] {
+    private static func lines(tone: DelaydTone, severity: ImpactSeverity, days: Int) -> [String] {
+        if severity == .major {
+            if days >= 25 {
+                return criticalMajorLines(for: tone)
+            }
+            if days >= 15 {
+                return extremeMajorLines(for: tone)
+            }
+        }
+
         switch tone {
         case .motivational: return motivational[severity] ?? []
         case .coach: return coach[severity] ?? []
         case .neutral: return neutral[severity] ?? []
         case .toughLove: return toughLove[severity] ?? []
         case .drillSergeant: return drillSergeant[severity] ?? []
+        }
+    }
+
+    private static func extremeMajorLines(for tone: DelaydTone) -> [String] {
+        switch tone {
+        case .motivational: return motivationalExtreme
+        case .coach: return coachExtreme
+        case .neutral: return neutralExtreme
+        case .toughLove: return toughLoveExtreme
+        case .drillSergeant: return drillSergeantExtreme
+        }
+    }
+
+    private static func criticalMajorLines(for tone: DelaydTone) -> [String] {
+        switch tone {
+        case .motivational: return motivationalCritical
+        case .coach: return coachCritical
+        case .neutral: return neutralCritical
+        case .toughLove: return toughLoveCritical
+        case .drillSergeant: return drillSergeantCritical
         }
     }
 
@@ -145,7 +214,8 @@ enum ImpactRevealCopy {
             "Small choice today, small impact: {days} {dayWord} on {goal}.",
             "Easy reset. {days} {dayWord} on {goal} — you're still on the rails.",
             "This one barely registers. {goal} keeps its shape and pace.",
-            "{goal} held the line. Only {days} {dayWord} of give. Keep going. ✨"
+            "{goal} held the line. Only {days} {dayWord} of give. Keep going. ✨",
+            "You only gave up {days} {dayWord} on {goal}. Guard the pattern and you'll stay ahead."
         ],
         .moderate: [
             "Real impact, but recoverable: {goal} moved {days} {dayWord}. You know the play.",
@@ -187,7 +257,8 @@ enum ImpactRevealCopy {
             "Major slip — {goal} moved {days} {dayWord}. One recovery week tightens it back up.",
             "{goal} took weight: {days} {dayWord}. Use the sting; it's the cheapest tutor you'll get.",
             "Big number on the page: {days} {dayWord} on {goal}. Walk it back gently from here.",
-            "{goal} stretched {days} {dayWord} further. Now the comeback gets to be the story. 💪"
+            "{goal} stretched {days} {dayWord} further. Now the comeback gets to be the story. 💪",
+            "That was a major delay on {goal}: {days} {dayWord}. Rebuild with protected contributions this week."
         ]
     ]
 
@@ -206,7 +277,8 @@ enum ImpactRevealCopy {
             "Read it, log it, move on. {days} {dayWord} on {goal}. 🎯",
             "That's a minor variance, not a setback. {days} {dayWord} on {goal}.",
             "Small cost, easy fix. Tighten the next decision and {goal} reabsorbs it.",
-            "Drill it tomorrow: {days} {dayWord} on {goal}. Keep the cadence."
+            "Drill it tomorrow: {days} {dayWord} on {goal}. Keep the cadence.",
+            "Minor slip: {days} {dayWord} on {goal}. Keep execution tight and move on."
         ],
         .moderate: [
             "Felt that — {days} {dayWord} on {goal}. Reset, refocus, run cleaner. 🎯",
@@ -248,7 +320,8 @@ enum ImpactRevealCopy {
             "{goal} dropped {days} {dayWord}. This one demands a deliberate week, not just a deliberate hour.",
             "The plan took a bruise. {days} {dayWord} on {goal} — reset the protocol, run it cleaner.",
             "Major ground lost: {days} {dayWord}. Coach call: pause non-essentials until {goal} catches back up.",
-            "{goal} slipped {days} {dayWord}. Time to play tighter, not louder. 🎯"
+            "{goal} slipped {days} {dayWord}. Time to play tighter, not louder. 🎯",
+            "Major delay recorded: {days} {dayWord} on {goal}. Recovery plan starts now, not later."
         ]
     ]
 
@@ -267,7 +340,8 @@ enum ImpactRevealCopy {
             "{goal} timeline updated: {days} {dayWord} of additional delay.",
             "Expense impact: {days} {dayWord} on {goal}.",
             "New estimate: {goal} is {days} {dayWord} further away.",
-            "Updated. {goal} delay total increased by {days} {dayWord}."
+            "Updated. {goal} delay total increased by {days} {dayWord}.",
+            "Current log effect: {goal} shifted by {days} {dayWord}."
         ],
         .moderate: [
             "Moderate impact: {goal} moved {days} {dayWord} based on this expense.",
@@ -309,7 +383,8 @@ enum ImpactRevealCopy {
             "Delay update: +{days} {dayWord} on {goal}. Severity: major.",
             "Expense impact (major): {days} {dayWord} on {goal}.",
             "{goal} estimated date now {days} {dayWord} later. Major delay.",
-            "Major: {goal} pushed {days} {dayWord}."
+            "Major: {goal} pushed {days} {dayWord}.",
+            "Computed result: +{days} {dayWord} on {goal} in the major band."
         ]
     ]
 
@@ -328,7 +403,8 @@ enum ImpactRevealCopy {
             "{goal} took {days} {dayWord}. The 'just one' line costs the most over time.",
             "Minor delay, major habit if it repeats. {days} {dayWord} on {goal}.",
             "Stacking quiet slips? {goal} took {days} {dayWord} this time.",
-            "{days} {dayWord} on {goal}. Each one is a vote against the dream."
+            "{days} {dayWord} on {goal}. Each one is a vote against the dream.",
+            "Small slip. Big signal. {days} {dayWord} on {goal} still counts."
         ],
         .moderate: [
             "{days} {dayWord} further from {goal}. Was it worth it?",
@@ -370,7 +446,8 @@ enum ImpactRevealCopy {
             "{days} {dayWord} gone. {goal} doesn't care about the reason — only the result.",
             "Major hit: {goal} slipped {days} {dayWord}. Next spend needs a real conversation with yourself.",
             "Honest entry: {days} {dayWord} on {goal}. Big spends create big delays, every time.",
-            "{goal} just lost {days} {dayWord}. The deadline isn't theoretical anymore."
+            "{goal} just lost {days} {dayWord}. The deadline isn't theoretical anymore.",
+            "{days} {dayWord} burned on {goal}. If this keeps repeating, the plan is fiction."
         ]
     ]
 
@@ -389,7 +466,8 @@ enum ImpactRevealCopy {
             "Logged. {goal} took {days} {dayWord} — eyes on the next spend.",
             "{goal} lost {days} {dayWord}. Tighten the next 24 hours.",
             "Order: protect the next spend after this {days}-{dayWord} drift on {goal}.",
-            "Strict count: {days} {dayWord} on {goal}. No second slip this week."
+            "Strict count: {days} {dayWord} on {goal}. No second slip this week.",
+            "{days} {dayWord} lost on {goal}. One warning. Next spend must be tighter."
         ],
         .moderate: [
             "{goal} lost {days} {dayWord}. Pause the next non-essential. No drift. 🏁",
@@ -431,7 +509,80 @@ enum ImpactRevealCopy {
             "{days} {dayWord} gone. Strict count: protect a matching amount before the next spend.",
             "{goal} bled {days} {dayWord} of progress. Tighten the entire month.",
             "Major delay logged. {goal} took {days} {dayWord}. Discipline mode stays on until recovered.",
-            "{goal} just lost {days} {dayWord}. Lock the budget. Lock the schedule. No drift."
+            "{goal} just lost {days} {dayWord}. Lock the budget. Lock the schedule. No drift.",
+            "{days} {dayWord} down on {goal}. Strict protocol: freeze non-essentials and recover immediately."
         ]
+    ]
+
+    // MARK: - Major Delay Variants (15+ and 25+ days)
+
+    private static let motivationalExtreme: [String] = [
+        "This hit {goal} by {days} {dayWord}. That's a heavy stretch, but recovery starts with one protected week. 💜",
+        "{goal} moved {days} {dayWord}. Big setback, still recoverable with focused choices this month.",
+        "A {days}-{dayWord} delay on {goal} asks for a calmer, stricter month. You can still turn this.",
+        "{goal} slipped {days} {dayWord}. Tough moment, not a final outcome."
+    ]
+
+    private static let motivationalCritical: [String] = [
+        "{goal} moved {days} {dayWord}. This is a major wake-up point; protect every non-essential from here.",
+        "{days} {dayWord} on {goal} is severe. Breathe, then rebuild with a concrete weekly recovery target.",
+        "That delay is deep: {days} {dayWord} on {goal}. The comeback now needs consistency, not intensity.",
+        "{goal} lost {days} {dayWord}. Hard truth, still fixable with a disciplined reset."
+    ]
+
+    private static let coachExtreme: [String] = [
+        "That's a {days}-{dayWord} setback on {goal}. Recovery plan: freeze leaks, stack protected amounts weekly.",
+        "{goal} took {days} {dayWord}. This is now a structured recovery phase, not a casual reset.",
+        "Heavy variance: {days} {dayWord} on {goal}. Run a strict 14-day correction sprint.",
+        "{goal} slipped {days} {dayWord}. Coach call: lock discretionary spending and recover pace."
+    ]
+
+    private static let coachCritical: [String] = [
+        "{goal} dropped {days} {dayWord}. This is critical territory; execute a hard recovery plan immediately.",
+        "Critical delay: {days} {dayWord} on {goal}. Next spend must clear a strict necessity check.",
+        "{days} {dayWord} behind on {goal}. Treat this like a performance reset and run the full playbook.",
+        "{goal} moved {days} {dayWord}. Recovery starts now: no unplanned spends this week."
+    ]
+
+    private static let neutralExtreme: [String] = [
+        "Severe impact: {goal} shifted by {days} {dayWord} (15+ day band).",
+        "Recorded: {goal} +{days} {dayWord}. Classification: severe major delay.",
+        "{goal} timeline moved {days} {dayWord} later. Impact range: 15–24 days.",
+        "Result: {days} {dayWord} delay on {goal}. High-major band."
+    ]
+
+    private static let neutralCritical: [String] = [
+        "Critical impact: {goal} shifted by {days} {dayWord} (25+ day band).",
+        "Recorded: {goal} +{days} {dayWord}. Classification: critical delay.",
+        "{goal} timeline moved {days} {dayWord} later. Impact range: 25+ days.",
+        "Result: {days} {dayWord} delay on {goal}. Critical band."
+    ]
+
+    private static let toughLoveExtreme: [String] = [
+        "{goal} just lost {days} {dayWord}. This isn't a slip; it's a pattern bill coming due.",
+        "{days} {dayWord} gone on {goal}. If behavior doesn't change now, the deadline keeps moving forever.",
+        "Heavy damage: {goal} +{days} {dayWord}. Comfort spending is writing your dream out of schedule.",
+        "{goal} moved {days} {dayWord}. This is the point where excuses become expensive."
+    ]
+
+    private static let toughLoveCritical: [String] = [
+        "{goal} lost {days} {dayWord}. That's critical damage. Keep this pace and the plan stops being real.",
+        "{days} {dayWord} down on {goal}. Hard truth: this pattern is incompatible with your deadline.",
+        "Critical delay on {goal}: {days} {dayWord}. Either spending changes now, or the goal timeline does.",
+        "{goal} slipped {days} {dayWord}. This is no longer a warning; it's a consequence."
+    ]
+
+    private static let drillSergeantExtreme: [String] = [
+        "Severe delay: {days} {dayWord} on {goal}. Immediate protocol: freeze non-essentials and recover weekly.",
+        "{goal} lost {days} {dayWord}. Discipline mode escalated. No optional spend without review.",
+        "{days} {dayWord} down. Execute strict recovery: protect amount first, spend second.",
+        "Order: hard reset. {goal} moved {days} {dayWord}; every rupee now needs mission approval."
+    ]
+
+    private static let drillSergeantCritical: [String] = [
+        "Critical delay: {days} {dayWord} on {goal}. Lockdown protocol now. No discretionary leaks.",
+        "{goal} dropped {days} {dayWord}. Full recovery regime starts immediately. No negotiation.",
+        "{days} {dayWord} behind. Mission risk is high; enforce strict spending controls today.",
+        "Critical setback on {goal}: {days} {dayWord}. Freeze non-essentials until pace is restored."
     ]
 }

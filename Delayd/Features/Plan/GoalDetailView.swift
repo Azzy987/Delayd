@@ -175,7 +175,12 @@ struct GoalDetailView: View {
             statCard(title: "Target", value: displayedGoal.formattedTargetAmount)
             statCard(title: "Saved", value: displayedGoal.formattedCurrentAmount)
             statCard(title: "Days left", value: displayedGoal.daysRemaining > 0 ? "\(displayedGoal.daysRemaining)" : "—")
-            statCard(title: "Delayed", value: "\(displayedGoal.delayedDays) day\(displayedGoal.delayedDays == 1 ? "" : "s")")
+            statCard(
+                title: displayedGoal.aheadDays > 0 ? "Ahead" : "Delayed",
+                value: displayedGoal.aheadDays > 0
+                    ? "\(displayedGoal.aheadDays) day\(displayedGoal.aheadDays == 1 ? "" : "s")"
+                    : "\(displayedGoal.delayedDays) day\(displayedGoal.delayedDays == 1 ? "" : "s")"
+            )
         }
     }
 
@@ -270,7 +275,15 @@ struct GoalDetailView: View {
     }
 
     private var shareText: String {
-        "\(displayedGoal.displayName) is \(displayedGoal.percentageText) protected in Delayd. Spending has moved it by \(displayedGoal.delayedDays) days.\n\nGet Delayd: \(AppShare.appLink)"
+        let timelineLine: String
+        if displayedGoal.aheadDays > 0 {
+            timelineLine = "I am ahead by \(displayedGoal.aheadDays) day\(displayedGoal.aheadDays == 1 ? "" : "s")."
+        } else if displayedGoal.delayedDays > 0 {
+            timelineLine = "Spending has moved it by \(displayedGoal.delayedDays) day\(displayedGoal.delayedDays == 1 ? "" : "s")."
+        } else {
+            timelineLine = "I am on pace."
+        }
+        return "\(displayedGoal.displayName) is \(displayedGoal.percentageText) protected in Delayd. \(timelineLine)\n\nGet Delayd: \(AppShare.appLink)"
     }
 }
 

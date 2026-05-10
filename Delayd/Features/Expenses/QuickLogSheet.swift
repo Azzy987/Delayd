@@ -45,6 +45,7 @@ struct QuickLogSheet: View {
                 .padding(.top, AppSpacing.sm)
                 .padding(.bottom, AppSpacing.sm)
             }
+            .scrollDismissesKeyboard(.interactively)
 
             VStack(spacing: 0) {
                 keypadHeader
@@ -85,17 +86,15 @@ struct QuickLogSheet: View {
         }
         .background(AppColors.background(for: colorScheme).ignoresSafeArea())
         .interactiveDismissDisabled(viewModel.isLogging)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { isCustomTagFocused = false }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AppColors.purplePrimary)
-            }
-        }
         .task {
             hapticService.playLightImpact()
             await viewModel.load(modelContainer: modelContext.container)
+        }
+        .onChange(of: isCustomTagFocused) { _, isFocused in
+            guard isFocused else { return }
+            withAnimation(AppMotion.sheetPresentation) {
+                isKeypadVisible = false
+            }
         }
         .sheet(isPresented: $isDatePickerPresented) {
             datePickerSheet
@@ -249,11 +248,7 @@ struct QuickLogSheet: View {
     }
 
     private var coachCopy: String? {
-        guard viewModel.amount > 0 else { return nil }
-        guard isProUnlocked else {
-            return "Pro delay coach flags what this spend does before you log it."
-        }
-        return viewModel.previewImpact?.suggestion
+        viewModel.delayCoachCopy(isProUnlocked: isProUnlocked)
     }
 
     // MARK: - Tag (chips with dismiss)
@@ -298,6 +293,9 @@ struct QuickLogSheet: View {
                         .textInputAutocapitalization(.words)
                         .submitLabel(.done)
                         .focused($isCustomTagFocused)
+                        .onSubmit {
+                            isCustomTagFocused = false
+                        }
                         .onChange(of: viewModel.customTagTitle) { _, newValue in
                             if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 viewModel.clearTag()
@@ -307,6 +305,7 @@ struct QuickLogSheet: View {
                     if !viewModel.customTagTitle.isEmpty {
                         Button {
                             viewModel.customTagTitle = ""
+                            isCustomTagFocused = false
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 16, weight: .semibold))
@@ -374,13 +373,15 @@ struct QuickLogSheet: View {
             .tint(AppColors.purplePrimary)
             .padding(.horizontal, AppSpacing.md)
 
-            Button("Done") {
+            Button {
                 isDatePickerPresented = false
+            } label: {
+                Text("Done")
+                    .font(AppTypography.bodyMedium)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .contentShape(Rectangle())
             }
-            .font(AppTypography.bodyMedium)
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
             .background(AppColors.purplePrimary, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, AppSpacing.lg)
             .padding(.bottom, AppSpacing.lg)
@@ -398,7 +399,7 @@ struct QuickLogSheet: View {
 
     private var logButton: some View {
         PrimaryButton("Log Expense", isLoading: viewModel.isLogging) {
-            if viewModel.needsHardModeConfirmation {
+            if isProUnlocked && viewModel.needsHardModeConfirmation {
                 hapticService.playWarning()
                 isHardModeConfirmationPresented = true
             } else {
@@ -412,6 +413,9 @@ struct QuickLogSheet: View {
     private var hardModeTitle: String {
         guard let impact = viewModel.previewImpact else {
             return "Log this expense?"
+        }
+        if impact.delayDays <= 0 {
+            return "This nudges \(impact.affectedGoal.name.delaydGoalTitleCased) by under 1 day."
         }
         return "This pushes \(impact.affectedGoal.name.delaydGoalTitleCased) by \(impact.delayDays) days."
     }
@@ -437,6 +441,7 @@ struct QuickLogSheet: View {
             Spacer()
 
             Button {
+                isCustomTagFocused = false
                 withAnimation(AppMotion.sheetPresentation) {
                     isKeypadVisible.toggle()
                 }
@@ -460,7 +465,7 @@ struct QuickLogSheet: View {
 
     private func symbol(for tag: ExpenseTag) -> String {
         switch tag.id.lowercased() {
-        case let value where value.contains("dinner") || value.contains("food"):
+        case let value where value.contains("dinner") || value.contains("food") || value.contains("dosa") || value.contains("idli") || value.contains("biryani") || value.contains("pizza") || value.contains("burger"):
             return "fork.knife"
         case let value where value.contains("coffee"):
             return "cup.and.saucer.fill"

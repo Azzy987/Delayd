@@ -3,8 +3,10 @@ import SwiftData
 
 struct PlanView: View {
     @State private var viewModel: PlanViewModel
+    let refreshToken: Int
     @State private var isCreateGoalPresented = false
     @State private var isAllGoalsPresented = false
+    @State private var isGoalSwitcherPresented = false
     @State private var goalToEdit: PlanGoal?
     @State private var goalToDelete: PlanGoal?
     @State private var isDeleteConfirmationPresented = false
@@ -12,13 +14,15 @@ struct PlanView: View {
     @State private var isProUnlocked = ProEntitlementService.isUnlocked
     @State private var shareItems: [Any] = []
     @State private var isSharePresented = false
+    @State private var isPreparingShare = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.iPadContentInset) private var hInset
 
     @MainActor
-    init(viewModel: PlanViewModel? = nil) {
+    init(viewModel: PlanViewModel? = nil, refreshToken: Int = 0) {
         _viewModel = State(initialValue: viewModel ?? PlanViewModel())
+        self.refreshToken = refreshToken
     }
 
     var body: some View {
@@ -54,6 +58,12 @@ struct PlanView: View {
                         isCreateGoalPresented = false
                     },
                     onCreate: { goal in
+                        isProUnlocked = ProEntitlementService.isUnlocked
+                        guard isProUnlocked || goalsCountForFreeLimit == 0 else {
+                            isCreateGoalPresented = false
+                            isProPresented = true
+                            return
+                        }
                         Task {
                             await viewModel.addGoal(goal, modelContainer: modelContext.container)
                             isCreateGoalPresented = false
@@ -75,6 +85,31 @@ struct PlanView: View {
                 )
                 .delaydPageSheet(detents: [.large])
             }
+            .sheet(isPresented: $isGoalSwitcherPresented) {
+                GoalSwitcherSheet(
+                    title: "Switch Goal",
+                    subtitle: "Choose which dream appears first in Plan.",
+                    selectedGoalId: viewModel.featuredGoal?.id,
+                    onSelect: { goalId in
+                        isGoalSwitcherPresented = false
+                        Task {
+                            let settingsRepository = SettingsRepository(modelContainer: modelContext.container)
+                            await settingsRepository.update { settings in
+                                settings.defaultGoalId = goalId
+                            }
+                            await viewModel.load(modelContainer: modelContext.container)
+                        }
+                    },
+                    onCreateNew: {
+                        isGoalSwitcherPresented = false
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(260))
+                            createGoalTapped()
+                        }
+                    }
+                )
+                .delaydPageSheet(detents: [.height(520), .large])
+            }
             .fullScreenCover(isPresented: $isProPresented) {
                 DelaydProView(
                     onClose: { isProPresented = false },
@@ -90,10 +125,10 @@ struct PlanView: View {
                     }
                 )
             }
-            .sheet(isPresented: $isSharePresented) {
-                DelaydShareSheet(items: shareItems)
-                    .presentationDetents([.medium, .large])
-            }
+            .background(
+                DelaydActivityPresenter(isPresented: $isSharePresented, items: shareItems)
+                    .frame(width: 0, height: 0)
+            )
             .confirmationDialog(
                 "Delete \(goalToDelete?.displayName ?? "this goal")?",
                 isPresented: $isDeleteConfirmationPresented,
@@ -112,8 +147,13 @@ struct PlanView: View {
                 Text("This will permanently remove the goal and all its linked data.")
             }
         }
-        .task {
+        .task(id: refreshToken) {
             await viewModel.load(modelContainer: modelContext.container)
+        }
+        .overlay {
+            if isPreparingShare {
+                preparingShareOverlay
+            }
         }
     }
 
@@ -144,16 +184,27 @@ struct PlanView: View {
                 Button {
                     shareFeaturedGoal()
                 } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(AppColors.textPrimary(for: colorScheme))
-                        .frame(width: 36, height: 36)
-                        .background(AppColors.card(for: colorScheme), in: Circle())
-                        .overlay(Circle().stroke(AppColors.border(for: colorScheme), lineWidth: 1))
+                    ZStack {
+                        Circle()
+                            .fill(AppColors.card(for: colorScheme))
+                        Circle()
+                            .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+
+                        if isPreparingShare {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(AppColors.textPrimary(for: colorScheme))
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                        }
+                    }
+                    .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.plain)
-                .disabled(viewModel.isEmpty)
-                .opacity(viewModel.isEmpty ? 0.45 : 1)
+                .disabled(viewModel.isEmpty || isPreparingShare)
+                .opacity((viewModel.isEmpty || isPreparingShare) ? 0.45 : 1)
                 .accessibilityLabel("Share goals")
             }
         }
@@ -163,10 +214,26 @@ struct PlanView: View {
 
     private var loadedContent: some View {
         VStack(alignment: .leading, spacing: AppSpacing.lg) {
-            sectionHeader(title: "Goals", actionTitle: "View All") {
-                isAllGoalsPresented = true
-            }
+            sectionHeader(title: "Goals", actionTitle: nil) {}
                 .padding(.horizontal, AppSpacing.lg)
+
+            HStack {
+                Spacer()
+                Button {
+                    isGoalSwitcherPresented = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Switch Goal")
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppColors.purplePrimary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.top, -AppSpacing.sm)
 
             if let featured = viewModel.featuredGoal {
                 NavigationLink {
@@ -178,42 +245,94 @@ struct PlanView: View {
                 .buttonStyle(.plain)
             }
 
-            sectionHeader(title: "My Goals", actionTitle: "View All") {
-                isAllGoalsPresented = true
-            }
-                .padding(.horizontal, AppSpacing.lg)
-                .padding(.top, AppSpacing.xs)
-
-            VStack(spacing: AppSpacing.md) {
-                ForEach(viewModel.remainingGoals) { goal in
-                    NavigationLink {
-                        GoalDetailView(goal: goal)
+            if viewModel.remainingGoals.isEmpty {
+                HStack {
+                    Text("My Goals")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                    Spacer()
+                    Button {
+                        isAllGoalsPresented = true
                     } label: {
-                        budgetRow(goal: goal)
+                        HStack(spacing: 4) {
+                            Text("View All")
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColors.purplePrimary)
                     }
                     .buttonStyle(.plain)
                 }
+                .padding(.horizontal, AppSpacing.lg)
+                .padding(.top, AppSpacing.xs)
+
+                Text("No additional goals yet. Tap + to add another dream.")
+                    .font(AppTypography.callout)
+                    .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(AppSpacing.md)
+                    .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.lg))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AppRadius.lg)
+                            .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+                    }
+                    .padding(.horizontal, AppSpacing.lg)
+            } else {
+                HStack {
+                    Text("My Goals")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                    Spacer()
+                    Button {
+                        isAllGoalsPresented = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("View All")
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColors.purplePrimary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, AppSpacing.lg)
+                .padding(.top, AppSpacing.xs)
+
+                VStack(spacing: AppSpacing.md) {
+                    ForEach(viewModel.remainingGoals) { goal in
+                        NavigationLink {
+                            GoalDetailView(goal: goal)
+                        } label: {
+                            budgetRow(goal: goal)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, AppSpacing.lg)
             }
-            .padding(.horizontal, AppSpacing.lg)
         }
     }
 
-    private func sectionHeader(title: String, actionTitle: String, action: @escaping () -> Void) -> some View {
+    private func sectionHeader(title: String, actionTitle: String? = nil, action: @escaping () -> Void) -> some View {
         HStack {
             Text(title)
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(AppColors.textPrimary(for: colorScheme))
             Spacer()
-            Button(action: action) {
-                HStack(spacing: 4) {
-                    Text(actionTitle)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+            if let actionTitle {
+                Button(action: action) {
+                    HStack(spacing: 4) {
+                        Text(actionTitle)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppColors.purplePrimary)
                 }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(AppColors.purplePrimary)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -227,16 +346,13 @@ struct PlanView: View {
             // White card top
             VStack(alignment: .leading, spacing: AppSpacing.md) {
                 HStack(alignment: .center, spacing: AppSpacing.md) {
-                    Text(goal.category.emoji)
-                        .font(.system(size: 22))
-                        .frame(width: 44, height: 44)
-                        .background(goal.category.backgroundColor, in: RoundedRectangle(cornerRadius: 12))
+                    GoalCategoryIcon(category: goal.category, size: 44)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(goal.displayName)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(AppColors.textPrimary(for: colorScheme))
-                        Text("\(goal.delayedDays) \(goal.delayedDays == 1 ? "day" : "days") delayed")
+                        Text(goal.timelineSummaryText)
                             .font(.system(size: 13))
                             .foregroundStyle(AppColors.textSecondary(for: colorScheme))
                     }
@@ -334,9 +450,15 @@ struct PlanView: View {
 
     private func featuredProgressBar(goal: PlanGoal, color: Color) -> some View {
         GeometryReader { geo in
-            let progress = min(max(CGFloat(goal.progress), 0), 1)
+            let progress = LayoutGuard.unit(CGFloat(goal.progress), name: "PlanView.featuredProgress")
             let trackHeight: CGFloat = 10
             let overshootWidth: CGFloat = min(0.18, 1 - progress)
+            let hatchWidth = LayoutGuard.dimension(
+                geo.size.width * LayoutGuard.unit(progress + overshootWidth, name: "PlanView.featuredHatchProgress"),
+                name: "PlanView.featuredHatchWidth"
+            )
+            let fillWidth = LayoutGuard.dimension(geo.size.width * progress, name: "PlanView.featuredFillWidth")
+            let knobOffset = LayoutGuard.scalar((geo.size.width * progress) - 8, name: "PlanView.featuredKnobOffset")
 
             ZStack(alignment: .leading) {
                 Capsule()
@@ -351,22 +473,22 @@ struct PlanView: View {
                             scale: 1
                         )
                     )
-                    .frame(width: geo.size.width * (progress + overshootWidth), height: trackHeight)
+                    .frame(width: hatchWidth, height: trackHeight)
                     .mask(
                         Capsule()
-                            .frame(width: geo.size.width * (progress + overshootWidth), height: trackHeight)
+                            .frame(width: hatchWidth, height: trackHeight)
                     )
 
                 // solid fill
                 Capsule()
                     .fill(color)
-                    .frame(width: geo.size.width * progress, height: trackHeight)
+                    .frame(width: fillWidth, height: trackHeight)
 
                 Circle()
                     .fill(AppColors.card(for: colorScheme))
                     .overlay(Circle().stroke(color, lineWidth: 3))
                     .frame(width: 16, height: 16)
-                    .offset(x: geo.size.width * progress - 8)
+                    .offset(x: knobOffset)
             }
         }
         .frame(height: 18)
@@ -376,10 +498,7 @@ struct PlanView: View {
 
     private func budgetRow(goal: PlanGoal) -> some View {
         HStack(spacing: AppSpacing.md) {
-            Text(goal.category.emoji)
-                .font(.system(size: 20))
-                .frame(width: 44, height: 44)
-                .background(goal.category.backgroundColor, in: RoundedRectangle(cornerRadius: 12))
+            GoalCategoryIcon(category: goal.category, size: 44)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(goal.displayName)
@@ -416,7 +535,10 @@ struct PlanView: View {
     // MARK: - Helpers
 
     private func defaultWarning(for goal: PlanGoal) -> String? {
-        goal.delayedDays > 0 ? "You're 30% behind schedule and off target." : nil
+        if goal.aheadDays > 0 {
+            return "You're \(goal.aheadDays) \(goal.aheadDays == 1 ? "day" : "days") ahead of schedule."
+        }
+        return goal.delayedDays > 0 ? "You're 30% behind schedule and off target." : nil
     }
 
     private func featuredStatusText(for goal: PlanGoal) -> String {
@@ -435,6 +557,9 @@ struct PlanView: View {
     }
 
     private func featuredStatusColor(for goal: PlanGoal) -> Color {
+        if goal.aheadDays > 0 {
+            return AppColors.positive
+        }
         if goal.warningText != nil || goal.delayedDays > 0 {
             return AppColors.warning
         }
@@ -498,18 +623,59 @@ struct PlanView: View {
 
     @MainActor
     private func shareFeaturedGoal() {
+        guard !isPreparingShare else { return }
         guard let featured = viewModel.featuredGoal else { return }
+        isPreparingShare = true
 
-        let url = AppShare.progressCardURL(
-            title: featured.displayName,
-            subtitle: "Every spend shows the days it moves this dream.",
-            amount: "\(featured.formattedCurrentAmount) of \(featured.formattedTargetAmount)",
-            progressText: "\(featured.percentageText) protected",
-            progress: featured.progress,
-            category: featured.category
-        )
-        shareItems = [url as Any, shareSummaryText].compactMap { $0 }
-        isSharePresented = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+
+            let image = AppShare.progressCardImage(
+                title: featured.displayName,
+                subtitle: "Every spend shows the days it moves this dream.",
+                amount: "\(featured.formattedCurrentAmount) of \(featured.formattedTargetAmount)",
+                progressText: "\(featured.percentageText) protected",
+                progress: featured.progress,
+                category: featured.category
+            )
+
+            var items: [Any] = [shareSummaryText]
+            if let image {
+                items.insert(image, at: 0)
+            }
+
+            guard !items.isEmpty else {
+                isPreparingShare = false
+                return
+            }
+
+            shareItems = items
+            isPreparingShare = false
+            isSharePresented = true
+        }
+    }
+
+    private var preparingShareOverlay: some View {
+        ZStack {
+            Color.black.opacity(colorScheme == .dark ? 0.44 : 0.18)
+                .ignoresSafeArea()
+
+            VStack(spacing: AppSpacing.sm) {
+                ProgressView()
+                    .controlSize(.regular)
+                Text("Preparing share…")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+            }
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.md)
+            .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.lg))
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.lg)
+                    .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+            }
+        }
+        .transition(.opacity)
     }
 
     private func createGoalTapped() {

@@ -9,7 +9,7 @@ struct LottieAnimationView: View {
     let loopMode: LottieLoopMode
     let size: CGFloat
 
-    @State private var isFloating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(_ animationName: String, size: CGFloat = 220, loopMode: LottieLoopMode = .loop) {
         self.animationName = animationName
@@ -23,13 +23,7 @@ struct LottieAnimationView: View {
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
-            .offset(y: isFloating ? -6 : 4)
-            .animation(
-                .easeInOut(duration: 2.8)
-                .repeatForever(autoreverses: true),
-                value: isFloating
-            )
-            .onAppear { isFloating = true }
+            .offset(y: reduceMotion ? 0 : 2)
             .accessibilityHidden(true)
     }
 }

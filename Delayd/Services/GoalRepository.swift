@@ -113,6 +113,7 @@ actor GoalRepository {
 
         let goalName = goal.name
         let goalEmoji = goal.emoji
+        let goalIllustrationAssetName = goal.category.illustrationAssetName
         let progress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0
         let savedAmount = goal.currentAmount
 
@@ -120,6 +121,7 @@ actor GoalRepository {
             DelaydWidgetSync.refresh(
                 goalName: goalName,
                 goalEmoji: goalEmoji,
+                goalIllustrationAssetName: goalIllustrationAssetName,
                 progress: progress,
                 daysDelayed: delayedDays,
                 savedAmount: savedAmount

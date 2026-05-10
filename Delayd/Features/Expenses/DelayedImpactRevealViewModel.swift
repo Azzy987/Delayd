@@ -121,13 +121,17 @@ final class DelayedImpactRevealViewModel {
     }
 
     private func animateDelayCount() async {
-        let finalValue = max(impact.delayDays, 1)
+        let finalValue = max(impact.delayDays, 0)
+        guard finalValue > 0 else {
+            displayedDelayDays = 0
+            return
+        }
         let steps = min(max(finalValue, 12), 40)
         let interval = 600 / steps
 
         for step in 0...steps {
             let progress = Double(step) / Double(steps)
-            displayedDelayDays = max(1, Int((Double(finalValue) * progress).rounded()))
+            displayedDelayDays = max(0, Int((Double(finalValue) * progress).rounded()))
             try? await Task.sleep(for: .milliseconds(interval))
         }
 
@@ -152,12 +156,16 @@ final class DelayedImpactRevealViewModel {
     }
 
     var delayText: String {
-        "\(displayedDelayDays) \(displayedDelayDays == 1 ? "day" : "days")"
+        if displayedDelayDays <= 0 {
+            return "Under 1 day"
+        }
+        return "\(displayedDelayDays) \(displayedDelayDays == 1 ? "day" : "days")"
     }
 
     var timelineShiftText: String? {
+        guard impact.delayDays > 0 else { return nil }
         guard let originalDate = impact.affectedGoal.targetDate else { return nil }
-        let days = max(impact.delayDays, 1)
+        let days = impact.delayDays
         guard let shiftedDate = Calendar.current.date(byAdding: .day, value: days, to: originalDate) else {
             return nil
         }
@@ -189,7 +197,11 @@ final class DelayedImpactRevealViewModel {
             return "\(CurrencyFormatter.format(impact.previousAmount, currencyCode: impact.currencyCode)) → \(CurrencyFormatter.format(impact.newAmount, currencyCode: impact.currencyCode)) saved"
         }
 
-        return "Timeline moved \(max(impact.delayDays, 1)) \(impact.delayDays == 1 ? "day" : "days") further away"
+        if impact.delayDays <= 0 {
+            return "Timeline change under 1 day"
+        }
+
+        return "Timeline moved \(impact.delayDays) \(impact.delayDays == 1 ? "day" : "days") further away"
     }
 
     var hasProgressMovement: Bool {
@@ -197,7 +209,8 @@ final class DelayedImpactRevealViewModel {
     }
 
     var delayMeterProgress: Double {
-        min(max(Double(max(impact.delayDays, 1)) / 30.0, 0.12), 1)
+        guard impact.delayDays > 0 else { return 0.08 }
+        return min(max(Double(impact.delayDays) / 30.0, 0.12), 1)
     }
 
     private func formatCurrencyNumber(_ value: Double) -> String {

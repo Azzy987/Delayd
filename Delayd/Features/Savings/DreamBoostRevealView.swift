@@ -95,13 +95,15 @@ struct DreamBoostRevealView: View {
             }
 
             GeometryReader { proxy in
+                let safeProgress = LayoutGuard.unit(animatedProgress, name: "DreamBoostReveal.progress")
+                let safeWidth = LayoutGuard.dimension(proxy.size.width * safeProgress, name: "DreamBoostReveal.progressWidth")
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(AppColors.border(for: colorScheme))
 
                     Capsule()
                         .fill(AppColors.positive)
-                        .frame(width: proxy.size.width * min(max(animatedProgress, 0), 1))
+                        .frame(width: safeWidth)
                 }
             }
             .frame(height: 10)
@@ -117,11 +119,18 @@ struct DreamBoostRevealView: View {
     }
 
     private var headline: String {
-        let dayWord = impact.daysCloser == 1 ? "day" : "days"
-        return "\(impact.daysCloser) \(dayWord) closer"
+        let recovered = impact.recoveredDelayDays
+        let dayWord = recovered == 1 ? "day" : "days"
+        return "Recovered \(recovered) \(dayWord)"
     }
 
     private var timelineLine: String {
+        if impact.netStatus.isAhead {
+            let ahead = impact.netStatus.aheadDays
+            let dayWord = ahead == 1 ? "day" : "days"
+            return "You are now ahead by \(ahead) \(dayWord) on \(impact.affectedGoal.name.delaydGoalTitleCased)."
+        }
+
         guard let previous = impact.previousTargetDate, let improved = impact.improvedTargetDate else {
             return "\(CurrencyFormatter.format(impact.amount, currencyCode: impact.currencyCode)) is now protected in \(impact.location.title.lowercased())."
         }
@@ -164,7 +173,9 @@ struct DreamBoostRevealView: View {
             location: .piggyBank,
             currencyCode: "USD",
             previousTargetDate: Calendar.current.date(byAdding: .month, value: 8, to: .now),
-            improvedTargetDate: Calendar.current.date(byAdding: .day, value: 15, to: Calendar.current.date(byAdding: .month, value: 7, to: .now) ?? .now)
+            improvedTargetDate: Calendar.current.date(byAdding: .day, value: 15, to: Calendar.current.date(byAdding: .month, value: 7, to: .now) ?? .now),
+            recoveredDelayDays: 15,
+            netStatus: NetDelayStatus.make(totalDelayDays: 21, recoveredDays: 15)
         ),
         onDismiss: {}
     )

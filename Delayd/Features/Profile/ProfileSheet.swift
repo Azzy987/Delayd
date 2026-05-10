@@ -8,8 +8,10 @@ struct ProfileSheet: View {
 
     @State private var isHelpPresented = false
     @State private var isSharePresented = false
+    @State private var isPreparingShare = false
     @State private var shareItems: [Any] = []
     @State private var stats = ProfileStats.empty
+    @State private var isProUnlocked = ProEntitlementService.isUnlocked
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
 
@@ -44,12 +46,19 @@ struct ProfileSheet: View {
             ProfileHelpSheet()
                 .delaydPageSheet(detents: [.height(280)])
         }
-        .sheet(isPresented: $isSharePresented) {
-            DelaydShareSheet(items: shareItems)
-                .presentationDetents([.medium, .large])
-        }
+        .background(
+            DelaydActivityPresenter(isPresented: $isSharePresented, items: shareItems)
+                .frame(width: 0, height: 0)
+        )
         .task {
             stats = await ProfileStats.load(modelContext: modelContext)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .delaydProEntitlementChanged)) { note in
+            if let unlocked = note.object as? Bool {
+                isProUnlocked = unlocked
+            } else {
+                isProUnlocked = ProEntitlementService.isUnlocked
+            }
         }
     }
 
@@ -84,6 +93,14 @@ struct ProfileSheet: View {
                 Image(systemName: "person.fill")
                     .font(.system(size: 42, weight: .semibold))
                     .foregroundStyle(.white)
+                if isProUnlocked {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color(red: 1.0, green: 0.86, blue: 0.32))
+                        .padding(6)
+                        .background(.white, in: Circle())
+                        .offset(x: 32, y: 32)
+                }
             }
 
             VStack(spacing: 4) {
@@ -131,17 +148,28 @@ struct ProfileSheet: View {
             onOpenPro?()
         } label: {
             HStack(spacing: AppSpacing.md) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(.white.opacity(0.2), in: Circle())
+                ZStack(alignment: .bottomTrailing) {
+                    Image("PaywallHero")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+
+                    if isProUnlocked {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(3)
+                            .background(AppColors.positive, in: Circle())
+                            .offset(x: 4, y: 4)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Delayd Pro")
+                    Text(isProUnlocked ? "Delayd Pro Active" : "Delayd Pro")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(.white)
-                    Text("Unlock richer insights")
+                    Text(isProUnlocked ? "All premium tools are unlocked" : "Unlock richer insights")
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.8))
                 }
@@ -154,6 +182,11 @@ struct ProfileSheet: View {
             }
             .padding(AppSpacing.md)
             .background(AppGradients.heroGradient, in: RoundedRectangle(cornerRadius: AppRadius.lg))
+            .overlay {
+                BrandPatternLayer(strength: colorScheme == .dark ? 0.45 : 0.62)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+                    .allowsHitTesting(false)
+            }
             .shadow(color: AppColors.purplePrimary.opacity(0.28), radius: 14, x: 0, y: 6)
         }
         .buttonStyle(.plain)
@@ -168,9 +201,28 @@ struct ProfileSheet: View {
             Button {
                 shareProgress()
             } label: {
-                linkRowContent(systemImage: "square.and.arrow.up", title: "Share your progress")
+                if isPreparingShare {
+                    HStack(spacing: AppSpacing.md) {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 30, height: 30)
+                            .background(AppColors.softPurpleBackground, in: RoundedRectangle(cornerRadius: 10))
+
+                        Text("Preparing to share…")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, AppSpacing.md)
+                    .padding(.vertical, AppSpacing.md)
+                    .contentShape(Rectangle())
+                } else {
+                    linkRowContent(systemImage: "square.and.arrow.up", title: "Share your progress")
+                }
             }
             .buttonStyle(.plain)
+            .disabled(isPreparingShare)
             Divider().overlay(AppColors.border(for: colorScheme))
             linkRow(systemImage: "questionmark.circle", title: "Help & Support") {
                 isHelpPresented = true
@@ -215,16 +267,23 @@ struct ProfileSheet: View {
 
     @MainActor
     private func shareProgress() {
-        let url = AppShare.progressCardURL(
-            title: "Dreams protected",
-            subtitle: stats.identitySubtitle,
-            amount: stats.savedThisMonthText,
-            progressText: "saved this month",
-            progress: stats.savedThisMonth > 0 ? 0.64 : 0.12,
-            category: .savings
-        )
-        shareItems = [url as Any, AppShare.profileText(goalsProtected: stats.goalsProtected)].compactMap { $0 }
-        isSharePresented = true
+        guard !isPreparingShare else { return }
+        isPreparingShare = true
+
+        Task { @MainActor in
+            await Task.yield()
+            let image = AppShare.progressCardImage(
+                title: "Dreams protected",
+                subtitle: stats.identitySubtitle,
+                amount: stats.savedThisMonthText,
+                progressText: "saved this month",
+                progress: stats.savedThisMonth > 0 ? 0.64 : 0.12,
+                category: .savings
+            )
+            shareItems = [image as Any, AppShare.profileText(goalsProtected: stats.goalsProtected)].compactMap { $0 }
+            isPreparingShare = false
+            isSharePresented = true
+        }
     }
 }
 

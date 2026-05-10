@@ -202,13 +202,15 @@ private struct DelayImpactMeter: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let safeProgress = LayoutGuard.unit(displayedProgress, name: "DelayImpactMeter.displayedProgress")
+            let safeWidth = LayoutGuard.dimension(proxy.size.width * safeProgress, name: "DelayImpactMeter.progressWidth")
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(accentColor.opacity(0.14))
 
                 Capsule()
                     .fill(accentColor)
-                    .frame(width: proxy.size.width * min(max(displayedProgress, 0), 1))
+                    .frame(width: safeWidth)
             }
         }
         .frame(height: 10)

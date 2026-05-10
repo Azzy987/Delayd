@@ -15,14 +15,14 @@ enum AppShare {
     }
 
     @MainActor
-    static func progressCardURL(
+    static func progressCardImage(
         title: String,
         subtitle: String,
         amount: String,
         progressText: String,
         progress: Double,
         category: GoalCategory
-    ) -> URL? {
+    ) -> UIImage? {
         let view = ShareProgressCard(
             title: title,
             subtitle: subtitle,
@@ -36,8 +36,27 @@ enum AppShare {
         let renderer = ImageRenderer(content: view)
         renderer.scale = 1
 
-        guard let image = renderer.uiImage,
-              let data = image.pngData() else {
+        return renderer.uiImage
+    }
+
+    @MainActor
+    static func progressCardURL(
+        title: String,
+        subtitle: String,
+        amount: String,
+        progressText: String,
+        progress: Double,
+        category: GoalCategory
+    ) -> URL? {
+        guard let image = progressCardImage(
+            title: title,
+            subtitle: subtitle,
+            amount: amount,
+            progressText: progressText,
+            progress: progress,
+            category: category
+        ),
+        let data = image.pngData() else {
             return nil
         }
 
@@ -66,6 +85,35 @@ struct DelaydShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+/// Reliable activity-sheet presenter for SwiftUI.
+/// Presents `UIActivityViewController` from an inert host controller instead
+/// of placing it inside a SwiftUI `.sheet`, which can render blank on some
+/// simulator/runtime combinations.
+struct DelaydActivityPresenter: UIViewControllerRepresentable {
+    @Binding var isPresented: Bool
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        UIViewController()
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        guard isPresented, uiViewController.presentedViewController == nil else { return }
+        guard !items.isEmpty else {
+            DispatchQueue.main.async { isPresented = false }
+            return
+        }
+
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in
+            DispatchQueue.main.async {
+                isPresented = false
+            }
+        }
+        uiViewController.present(controller, animated: true)
+    }
 }
 
 private struct ShareProgressCard: View {
@@ -119,13 +167,15 @@ private struct ShareProgressCard: View {
                         .minimumScaleFactor(0.55)
 
                     GeometryReader { proxy in
+                        let safeProgress = LayoutGuard.unit(progress, name: "ShareProgressCard.progress")
+                        let safeWidth = LayoutGuard.dimension(proxy.size.width * safeProgress, name: "ShareProgressCard.progressWidth")
                         ZStack(alignment: .leading) {
                             Capsule()
                                 .fill(AppColors.softPurpleBackground)
 
                             Capsule()
                                 .fill(AppGradients.heroGradient)
-                                .frame(width: proxy.size.width * min(max(progress, 0), 1))
+                                .frame(width: safeWidth)
                         }
                     }
                     .frame(height: 26)

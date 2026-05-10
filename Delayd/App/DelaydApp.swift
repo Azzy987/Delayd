@@ -23,7 +23,7 @@ struct DelaydApp: App {
                 .preferredColorScheme(appTheme.colorScheme)
                 .task {
                     await ProEntitlementService.refreshCustomerInfo()
-                    await ProEntitlementService.startCustomerInfoListener()
+                    ProEntitlementService.startCustomerInfoListener()
                 }
                 // When SettingsViewModel calls updateTheme() it posts to
                 // UserDefaults AND triggers this notification so the running

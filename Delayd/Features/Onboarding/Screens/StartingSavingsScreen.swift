@@ -80,6 +80,7 @@ struct StartingSavingsScreen: View {
                         }
                     }
                 }
+                .scrollDismissesKeyboard(.interactively)
 
                 VStack(spacing: AppSpacing.md) {
                     pageIndicator(current: Self.stepIndex, total: OnboardingViewModel.totalSteps)
@@ -94,6 +95,17 @@ struct StartingSavingsScreen: View {
             }
             .padding(.horizontal, AppSpacing.lg)
             .padding(.bottom, AppSpacing.lg)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if dragProgress.activeIndex == Self.stepIndex, isFocused {
+                    Spacer()
+                    Button("Done") {
+                        isFocused = false
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                }
+            }
         }
         .onAppear {
             if dragProgress.activeIndex == Self.stepIndex {
@@ -124,7 +136,14 @@ struct StartingSavingsScreen: View {
                     .keyboardType(.numberPad)
                     .minimumScaleFactor(0.55)
                     .focused($isFocused)
+                    .onChange(of: startingSavedAmount) { _, newValue in
+                        let filtered = newValue.filter { $0.isNumber }
+                        if filtered != newValue {
+                            startingSavedAmount = filtered
+                        }
+                    }
             }
+
         }
         .delaydCard()
     }

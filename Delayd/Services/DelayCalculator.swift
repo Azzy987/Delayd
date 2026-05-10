@@ -22,7 +22,10 @@ struct DelayCalculator {
     func calculateDelay(expenseAmount: Double, goal: GoalSnapshot, monthlyTarget: Double) -> DelayImpact {
         let safeTarget = max(monthlyTarget, 1)
         let dailyTarget = safeTarget / 30.0
-        let delayDays = max(1, Int(ceil(expenseAmount / dailyTarget)))
+        let safeExpense = max(expenseAmount, 0)
+        // Use nearest-day rounding so very small one-off spends don't inflate
+        // into an artificial full-day delay.
+        let delayDays = max(0, Int((safeExpense / dailyTarget).rounded()))
         let previousProgress = clampedProgress(goal.currentAmount / max(goal.targetAmount, 1))
         // Spending delays the projected timeline, but it does not remove
         // money the user already protected in a piggy bank, bank, locker, etc.
@@ -47,7 +50,12 @@ struct DelayCalculator {
         let expense = NSDecimalNumber(decimal: amount).doubleValue
         let monthlyTarget = NSDecimalNumber(decimal: monthlySavingsTarget).doubleValue
         let dailyTarget = max(monthlyTarget, 1) / 30.0
-        return max(1, Int(ceil(expense / dailyTarget)))
+        let safeExpense = max(expense, 0)
+        return max(0, Int((safeExpense / dailyTarget).rounded()))
+    }
+
+    func recoveredDelayDays(forProtected amount: Decimal, monthlySavingsTarget: Decimal) -> Int {
+        delayDays(forExpense: amount, monthlySavingsTarget: monthlySavingsTarget)
     }
 
     private func generateSuggestion(amount: Double, delayDays: Int, goal: GoalSnapshot, monthlyTarget: Double) -> String {

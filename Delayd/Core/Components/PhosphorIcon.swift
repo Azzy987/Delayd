@@ -18,8 +18,13 @@ import SwiftUI
 struct PhosphorIcon: View {
     enum Name: String {
         case house = "ic_house"
+        case homeOutline = "ic_home_outline"
+        case homeFilledCustom = "ic_home_filled_custom"
         case wallet = "ic_wallet"
+        case goalOutline = "ic_goal_outline"
+        case goalFilledCustom = "ic_goal_filled_custom"
         case chartBar = "ic_chart_bar"
+        case chartBarOutline = "ic_chart_bar_outline"
         case target = "ic_target"
         case clock = "ic_clock"
         case gearSix = "ic_gear_six"

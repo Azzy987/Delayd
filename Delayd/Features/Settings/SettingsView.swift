@@ -11,7 +11,9 @@ struct SettingsView: View {
     @State private var isTonePickerPresented = false
     @State private var isThemePickerPresented = false
     @State private var activeSettingsSheet: SettingsUtilitySheet?
+    @State private var isCreateGoalPresented = false
     @State private var isNotificationDeniedAlertPresented = false
+    @State private var isProUnlocked = ProEntitlementService.isUnlocked
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.iPadContentInset) private var hInset
@@ -47,6 +49,14 @@ struct SettingsView: View {
         .task {
             await viewModel.load(modelContainer: modelContext.container)
             viewModel.refreshStats(modelContext: modelContext)
+            isProUnlocked = ProEntitlementService.isUnlocked
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .delaydProEntitlementChanged)) { note in
+            if let unlocked = note.object as? Bool {
+                isProUnlocked = unlocked
+            } else {
+                isProUnlocked = ProEntitlementService.isUnlocked
+            }
         }
         .fullScreenCover(isPresented: $isProSheetPresented) {
             DelaydProView(
@@ -56,6 +66,13 @@ struct SettingsView: View {
                 },
                 onRestore: {
                     isProSheetPresented = false
+                },
+                onManageSubscription: {
+                    isProSheetPresented = false
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(260))
+                        isCustomerCenterPresented = true
+                    }
                 }
             )
         }
@@ -82,6 +99,37 @@ struct SettingsView: View {
         .sheet(item: $activeSettingsSheet) { sheet in
             settingsUtilitySheet(sheet)
         }
+        .sheet(isPresented: $isCreateGoalPresented) {
+            CreateGoalSheet(
+                onClose: {
+                    isCreateGoalPresented = false
+                },
+                onCreate: { goal in
+                    Task {
+                        let goalRepository = GoalRepository(modelContainer: modelContext.container)
+                        let activeGoals = await goalRepository.fetchActive()
+                        guard ProEntitlementService.isUnlocked || activeGoals.isEmpty else {
+                            isCreateGoalPresented = false
+                            isProSheetPresented = true
+                            return
+                        }
+                        let created = await goalRepository.create(
+                            name: goal.name,
+                            emoji: goal.category.emoji,
+                            category: goal.category,
+                            targetAmount: goal.targetAmount,
+                            deadline: goal.daysRemaining > 0
+                                ? Calendar.current.date(byAdding: .day, value: goal.daysRemaining, to: .now)
+                                : nil
+                        )
+                        viewModel.updateDefaultGoal(id: created.id)
+                        await viewModel.load(modelContainer: modelContext.container)
+                        isCreateGoalPresented = false
+                    }
+                }
+            )
+            .delaydPageSheet(detents: [.large])
+        }
         .sheet(isPresented: $isCustomerCenterPresented) {
             CustomerCenterView()
                 .onCustomerCenterRestoreCompleted { customerInfo in
@@ -102,6 +150,10 @@ struct SettingsView: View {
             Text("Keep Delayd tuned to how you protect your goals.")
                 .font(AppTypography.callout)
                 .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+
+            Text("No login. Local-first data on this device.")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textTertiary(for: colorScheme))
         }
     }
 
@@ -110,28 +162,46 @@ struct SettingsView: View {
             isProSheetPresented = true
         } label: {
             HStack(spacing: AppSpacing.md) {
-                Image(systemName: "sparkle")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(.white.opacity(0.16), in: RoundedRectangle(cornerRadius: AppRadius.md))
+                ZStack(alignment: .bottomTrailing) {
+                    Image("PaywallHero")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+
+                    if isProUnlocked {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(3)
+                            .background(AppColors.positive, in: Circle())
+                            .offset(x: 4, y: 4)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                    Text("Delayd Pro")
+                    Text(isProUnlocked ? "Delayd Pro Active" : "Delayd Pro")
                         .font(AppTypography.bodyMedium)
 
-                    Text("Unlock advanced insights")
+                    Text(isProUnlocked ? "Premium features unlocked" : "Unlock advanced insights")
                         .font(AppTypography.callout)
                         .opacity(0.78)
                 }
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.callout.weight(.semibold))
-                    .opacity(0.78)
+                if !isProUnlocked {
+                    Image(systemName: "chevron.right")
+                        .font(.callout.weight(.semibold))
+                        .opacity(0.78)
+                }
             }
             .delaydHeroCard()
+            .overlay {
+                BrandPatternLayer(strength: colorScheme == .dark ? 0.45 : 0.62)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.xl, style: .continuous))
+                    .allowsHitTesting(false)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -208,6 +278,56 @@ struct SettingsView: View {
             )
             divider
             toggleRow(
+                systemImage: "sparkles",
+                title: "Smart Delay Reminders",
+                subtitle: "Rule-based nudges when your weekly trend worsens",
+                isOn: Binding(
+                    get: { viewModel.smartDelayRemindersEnabled },
+                    set: { viewModel.updateSmartDelayReminders(enabled: $0) }
+                ),
+                isDisabled: !viewModel.notificationsEnabled,
+                isProLocked: !isProUnlocked
+            )
+            .onTapGesture {
+                if !isProUnlocked {
+                    isProSheetPresented = true
+                }
+            }
+            divider
+            toggleRow(
+                systemImage: "calendar.badge.clock",
+                title: "Weekly Dream Recap",
+                subtitle: "Sunday recap of protected money and delays",
+                isOn: Binding(
+                    get: { viewModel.weeklyDreamRecapEnabled },
+                    set: { viewModel.updateWeeklyDreamRecap(enabled: $0) }
+                ),
+                isDisabled: !viewModel.notificationsEnabled,
+                isProLocked: !isProUnlocked
+            )
+            .onTapGesture {
+                if !isProUnlocked {
+                    isProSheetPresented = true
+                }
+            }
+            divider
+            Button {
+                if isProUnlocked {
+                    activeSettingsSheet = .notificationTimes
+                } else {
+                    isProSheetPresented = true
+                }
+            } label: {
+                row(
+                    systemImage: "clock.arrow.circlepath",
+                    title: "Notification Times",
+                    value: viewModel.dailyReminderTimeText,
+                    isProLocked: !isProUnlocked
+                )
+            }
+            .buttonStyle(.plain)
+            divider
+            toggleRow(
                 systemImage: "waveform.path",
                 title: "Haptics",
                 subtitle: "Feel the impact",
@@ -232,9 +352,13 @@ struct SettingsView: View {
     private var dataRows: some View {
         VStack(spacing: 0) {
             Button {
-                activeSettingsSheet = .exportData
+                if isProUnlocked {
+                    activeSettingsSheet = .exportData
+                } else {
+                    isProSheetPresented = true
+                }
             } label: {
-                row(systemImage: "square.and.arrow.up", title: "Export Data", value: "Local file")
+                row(systemImage: "square.and.arrow.up", title: "Export Data", value: "Local file", isProLocked: !isProUnlocked)
             }
             .buttonStyle(.plain)
             divider
@@ -335,11 +459,17 @@ struct SettingsView: View {
         }
     }
 
-    private func row(systemImage: String, title: String, value: String?) -> some View {
-        rowContent(systemImage: systemImage, title: title, value: value, tint: AppColors.purplePrimary)
+    private func row(systemImage: String, title: String, value: String?, isProLocked: Bool = false) -> some View {
+        rowContent(systemImage: systemImage, title: title, value: value, tint: AppColors.purplePrimary, isProLocked: isProLocked)
     }
 
-    private func rowContent(systemImage: String, title: String, value: String?, tint: Color) -> some View {
+    private func rowContent(
+        systemImage: String,
+        title: String,
+        value: String?,
+        tint: Color,
+        isProLocked: Bool = false
+    ) -> some View {
         let palette = settingsIconPalette(systemImage: systemImage, fallback: tint)
 
         return HStack(spacing: AppSpacing.md) {
@@ -363,6 +493,18 @@ struct SettingsView: View {
                     .minimumScaleFactor(0.72)
             }
 
+            if isProLocked {
+                Text("PRO")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(AppColors.purplePrimary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1),
+                        in: Capsule()
+                    )
+            }
+
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppColors.textTertiary(for: colorScheme))
@@ -370,7 +512,14 @@ struct SettingsView: View {
         .padding(.vertical, AppSpacing.sm)
     }
 
-    private func toggleRow(systemImage: String, title: String, subtitle: String, isOn: Binding<Bool>, isDisabled: Bool = false) -> some View {
+    private func toggleRow(
+        systemImage: String,
+        title: String,
+        subtitle: String,
+        isOn: Binding<Bool>,
+        isDisabled: Bool = false,
+        isProLocked: Bool = false
+    ) -> some View {
         let palette = settingsIconPalette(systemImage: systemImage, fallback: AppColors.purplePrimary, isDisabled: isDisabled)
 
         return HStack(spacing: AppSpacing.md) {
@@ -393,13 +542,25 @@ struct SettingsView: View {
 
             Spacer(minLength: AppSpacing.sm)
 
-            Toggle(title, isOn: isOn)
-                .labelsHidden()
-                .tint(AppColors.purplePrimary)
-                .disabled(isDisabled)
+            if isProLocked {
+                Text("PRO")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(AppColors.purplePrimary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1),
+                        in: Capsule()
+                    )
+            } else {
+                Toggle(title, isOn: isOn)
+                    .labelsHidden()
+                    .tint(AppColors.purplePrimary)
+                    .disabled(isDisabled)
+            }
         }
         .padding(.vertical, AppSpacing.sm)
-        .opacity(isDisabled ? 0.58 : 1)
+        .opacity((isDisabled && !isProLocked) ? 0.58 : 1)
     }
 
     private func settingsIconPalette(
@@ -473,11 +634,26 @@ struct SettingsView: View {
             )
             .delaydPageSheet(detents: [.height(540), .medium])
         case .defaultGoal:
-            DefaultGoalPickerSheet(
+            GoalSwitcherSheet(
+                title: "Default Goal",
+                subtitle: "Pick the dream new expenses attach to first.",
                 selectedGoalId: viewModel.defaultGoalId,
                 onSelect: { goalId in
                     viewModel.updateDefaultGoal(id: goalId)
                     activeSettingsSheet = nil
+                },
+                onCreateNew: {
+                    activeSettingsSheet = nil
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(260))
+                        let goalRepository = GoalRepository(modelContainer: modelContext.container)
+                        let activeGoals = await goalRepository.fetchActive()
+                        guard ProEntitlementService.isUnlocked || activeGoals.isEmpty else {
+                            isProSheetPresented = true
+                            return
+                        }
+                        isCreateGoalPresented = true
+                    }
                 }
             )
             .delaydPageSheet(detents: [.height(490), .medium])
@@ -508,25 +684,50 @@ struct SettingsView: View {
             )
             .delaydPageSheet(detents: [.height(390), .medium])
         case .privacy:
-            SettingsInfoSheet(
+            LegalDocumentSheet(
                 systemImage: "hand.raised.fill",
                 title: "Privacy Policy",
                 subtitle: "Delayd is local-first. Your data stays on your device.",
-                detail: "Delayd does not collect, transmit, or sell any personal data. All goals, logged expenses, and delay impacts are stored exclusively on your device using Apple's SwiftData framework.\n\nNo account is required. No sign-in is ever forced. There is no analytics SDK, no advertising identifier collection, and no third-party data sharing in V1.\n\nIf you choose to enable cloud sync in a future version, that will be opt-in and clearly explained before any data leaves your device. Until then, uninstalling the app removes all data permanently.\n\nDelayd does not track your location, contacts, or any data outside the app. The only permission requested is optional notifications — solely to remind you to log expenses.",
-                primaryTitle: "Got it",
-                onPrimary: { activeSettingsSheet = nil }
+                sourceURL: URL(string: "https://www.droidates.com/p/privacy-policy-delayd.html")!,
+                sections: [
+                    LegalSection(title: "Local-first data", body: "Goals, logged expenses, protected amounts, settings, and delay impacts are stored on this device using SwiftData. Delayd does not require an account or sign-in for V1."),
+                    LegalSection(title: "No bank access", body: "Delayd does not connect to banks, payment accounts, cards, salary data, or financial institutions. All expense entries are created manually by you."),
+                    LegalSection(title: "Permissions", body: "Notifications are optional and are used only for local reminders and delay recaps. Haptics stay on-device. Delayd does not request contacts, location, photos, microphone, camera, or tracking permission for V1."),
+                    LegalSection(title: "Purchases", body: "If you buy Delayd Pro, Apple and RevenueCat process purchase status so the app can unlock premium features. Your dream and expense data remains local to your device."),
+                    LegalSection(title: "Future sync", body: "If cloud sync ships later, it will be opt-in and explained before any data leaves your device. Uninstalling the V1 app removes local app data from the device.")
+                ],
+                onClose: { activeSettingsSheet = nil }
             )
-            .delaydPageSheet(detents: [.medium, .large])
+            .delaydPageSheet(detents: [.large])
         case .terms:
-            SettingsInfoSheet(
+            LegalDocumentSheet(
                 systemImage: "doc.text.fill",
                 title: "Terms of Use",
                 subtitle: "By using Delayd, you agree to these terms.",
-                detail: "Delayd is provided as-is for personal financial awareness only. It is not a licensed financial advisor, bank, or investment service. Delay calculations are estimates based on your monthly savings target and logged expenses — they are not guaranteed financial outcomes.\n\nYou are responsible for the accuracy of the data you log. Delayd does not access your bank accounts or financial institutions.\n\nAll data is stored locally on your device. You can wipe all data at any time from Settings → Debug → Wipe All Data.\n\nFull terms of service will be published on the App Store listing prior to public release.",
-                primaryTitle: "Got it",
-                onPrimary: { activeSettingsSheet = nil }
+                sourceURL: URL(string: "https://www.droidates.com/p/terms-of-use-delayd.html")!,
+                sections: [
+                    LegalSection(title: "Personal awareness tool", body: "Delayd is provided for personal financial awareness. It is not a bank, licensed financial advisor, investment advisor, credit product, accounting product, or budgeting service."),
+                    LegalSection(title: "Estimated delay impact", body: "Delay calculations are estimates based on the monthly savings target and expenses you enter. They are not guarantees of savings, investment performance, goal completion, or financial outcomes."),
+                    LegalSection(title: "Your entries", body: "You are responsible for the accuracy of goals, targets, protected amounts, and expenses you log. Delayd does not verify purchases or access external financial accounts."),
+                    LegalSection(title: "Delayd Pro", body: "Pro unlocks local premium features described in the app. Subscriptions renew through your Apple ID until cancelled. Lifetime purchases do not renew."),
+                    LegalSection(title: "Local storage", body: "V1 stores data on your device. Removing the app can permanently remove local data unless you have a device backup that includes it.")
+                ],
+                onClose: { activeSettingsSheet = nil }
             )
-            .delaydPageSheet(detents: [.medium, .large])
+            .delaydPageSheet(detents: [.large])
+        case .notificationTimes:
+            NotificationTimesSheet(
+                dailyTime: viewModel.dailyReminderTime,
+                smartTime: viewModel.smartReminderTime,
+                weeklyTime: viewModel.weeklyRecapTime,
+                onSave: { daily, smart, weekly in
+                    viewModel.updateDailyReminderTime(daily)
+                    viewModel.updateSmartReminderTime(smart)
+                    viewModel.updateWeeklyRecapTime(weekly)
+                    activeSettingsSheet = nil
+                }
+            )
+            .delaydPageSheet(detents: [.height(430), .large])
         }
     }
 }
@@ -541,8 +742,100 @@ private enum SettingsUtilitySheet: String, Identifiable {
     case version
     case privacy
     case terms
+    case notificationTimes
 
     var id: String { rawValue }
+}
+
+private struct NotificationTimesSheet: View {
+    @State private var dailyDate: Date
+    @State private var smartDate: Date
+    @State private var weeklyDate: Date
+    let onSave: (DateComponents, DateComponents, DateComponents) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(
+        dailyTime: DateComponents,
+        smartTime: DateComponents,
+        weeklyTime: DateComponents,
+        onSave: @escaping (DateComponents, DateComponents, DateComponents) -> Void
+    ) {
+        _dailyDate = State(initialValue: Self.date(from: dailyTime, fallbackHour: 20, fallbackMinute: 0))
+        _smartDate = State(initialValue: Self.date(from: smartTime, fallbackHour: 17, fallbackMinute: 30))
+        _weeklyDate = State(initialValue: Self.date(from: weeklyTime, fallbackHour: 18, fallbackMinute: 0))
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            SettingsSheetHeader(
+                systemImage: "clock.arrow.circlepath",
+                title: "Notification Times",
+                subtitle: "Pro: choose when reminders should arrive."
+            )
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.top, AppSpacing.lg)
+
+            VStack(spacing: AppSpacing.sm) {
+                timeRow(title: "Daily Reminder", date: $dailyDate)
+                timeRow(title: "Smart Delay Reminder", date: $smartDate)
+                timeRow(title: "Weekly Recap (Sunday)", date: $weeklyDate)
+            }
+            .padding(.horizontal, AppSpacing.lg)
+
+            Spacer(minLength: AppSpacing.md)
+
+            PrimaryButton("Save Times") {
+                onSave(
+                    Self.components(from: dailyDate),
+                    Self.components(from: smartDate),
+                    Self.components(from: weeklyDate)
+                )
+            }
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.bottom, AppSpacing.lg)
+        }
+        .background(AppColors.background(for: colorScheme).ignoresSafeArea())
+    }
+
+    private func timeRow(title: String, date: Binding<Date>) -> some View {
+        HStack(spacing: AppSpacing.md) {
+            Image(systemName: "clock.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppColors.purplePrimary)
+                .frame(width: 36, height: 36)
+                .background(AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1), in: RoundedRectangle(cornerRadius: AppRadius.md))
+
+            Text(title)
+                .font(AppTypography.bodyMedium)
+                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Spacer(minLength: AppSpacing.sm)
+
+            DatePicker(title, selection: date, displayedComponents: .hourAndMinute)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(AppColors.purplePrimary)
+        }
+        .padding(AppSpacing.md)
+        .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.lg)
+                .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+        }
+    }
+
+    private static func components(from date: Date) -> DateComponents {
+        Calendar.current.dateComponents([.hour, .minute], from: date)
+    }
+
+    private static func date(from components: DateComponents, fallbackHour: Int, fallbackMinute: Int) -> Date {
+        let hour = components.hour ?? fallbackHour
+        let minute = components.minute ?? fallbackMinute
+        return Calendar.current.date(from: DateComponents(hour: hour, minute: minute)) ?? Date()
+    }
 }
 
 private struct CurrencyPickerSheet: View {
@@ -718,12 +1011,30 @@ private struct MonthlySavingsTargetSheet: View {
                             .font(.system(size: 28, weight: .bold, design: .monospaced))
                             .foregroundStyle(AppColors.textPrimary(for: colorScheme))
                             .focused($isAmountFocused)
+                            .onChange(of: targetText) { _, newValue in
+                                let filtered = newValue.filter { $0.isNumber }
+                                if filtered != newValue {
+                                    targetText = filtered
+                                }
+                            }
                     }
                     .padding(AppSpacing.md)
                     .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.lg))
                     .overlay {
                         RoundedRectangle(cornerRadius: AppRadius.lg)
                             .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+                    }
+
+                    if isAmountFocused {
+                        Button("Done editing") {
+                            isAmountFocused = false
+                        }
+                        .font(AppTypography.captionMedium)
+                        .foregroundStyle(AppColors.purplePrimary)
+                        .padding(.horizontal, AppSpacing.md)
+                        .padding(.vertical, AppSpacing.xs)
+                        .background(AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1), in: Capsule())
+                        .buttonStyle(.plain)
                     }
                 }
 
@@ -760,12 +1071,14 @@ private struct MonthlySavingsTargetSheet: View {
             .padding(.bottom, AppSpacing.xl)
         }
         .background(AppColors.background(for: colorScheme).ignoresSafeArea())
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") { isAmountFocused = false }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AppColors.purplePrimary)
+                Button("Done") {
+                    isAmountFocused = false
+                }
+                .font(.system(size: 15, weight: .semibold))
             }
         }
     }
@@ -816,10 +1129,7 @@ private struct DefaultGoalPickerSheet: View {
                                 onSelect(goal.id)
                             } label: {
                                 HStack(spacing: AppSpacing.md) {
-                                    Text(goal.emoji)
-                                        .font(.system(size: 20))
-                                        .frame(width: 42, height: 42)
-                                        .background(AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1), in: RoundedRectangle(cornerRadius: AppRadius.md))
+                                    GoalCategoryIcon(category: goal.category, size: 42)
 
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(goal.name.delaydGoalTitleCased)
@@ -889,6 +1199,85 @@ private struct SettingsInfoSheet: View {
     }
 }
 
+private struct LegalSection: Identifiable {
+    let id = UUID()
+    let title: String
+    let body: String
+}
+
+private struct LegalDocumentSheet: View {
+    let systemImage: String
+    let title: String
+    let subtitle: String
+    let sourceURL: URL
+    let sections: [LegalSection]
+    let onClose: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: true) {
+                VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                    SettingsSheetHeader(systemImage: systemImage, title: title, subtitle: subtitle)
+
+                    VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                        ForEach(sections) { section in
+                            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                                Text(section.title)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+
+                                Text(section.body)
+                                    .font(AppTypography.body)
+                                    .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .padding(AppSpacing.lg)
+                    .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.xl))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AppRadius.xl)
+                            .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+                    }
+
+                    Link(destination: sourceURL) {
+                        HStack(spacing: AppSpacing.sm) {
+                            Image(systemName: "arrow.up.right.square.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text("Open full document")
+                                .font(AppTypography.bodyMedium)
+                            Spacer()
+                        }
+                        .foregroundStyle(AppColors.purplePrimary)
+                        .padding(AppSpacing.md)
+                        .background(AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1), in: RoundedRectangle(cornerRadius: AppRadius.lg))
+                    }
+
+                    PrimaryButton("Done", action: onClose)
+                }
+                .padding(.horizontal, AppSpacing.lg)
+                .padding(.top, AppSpacing.xl)
+                .padding(.bottom, AppSpacing.xl)
+            }
+            .background(AppColors.background(for: colorScheme).ignoresSafeArea())
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
+        }
+    }
+}
+
 private struct QuickCaptureSetupSheet: View {
     let onDone: () -> Void
 
@@ -900,13 +1289,15 @@ private struct QuickCaptureSetupSheet: View {
             number: "1",
             icon: "shortcuts",
             title: "Create the shortcut",
-            detail: "Open Shortcuts, add Delayd Quick Capture, then set Amount, Spend Type, Custom Merchant, and Date to Ask Each Time."
+            detail: "Open Shortcuts, add Delayd Log Expense, then set Amount, Spend Type, Custom Merchant, and Date to Ask Each Time.",
+            action: .openShortcuts
         ),
         QuickCaptureStep(
             number: "2",
             icon: "hand.tap.fill",
             title: "Assign Back Tap",
-            detail: "Open iPhone Settings, go to Accessibility, Touch, Back Tap, Double Tap, then choose your Delayd Quick Capture shortcut."
+            detail: "Open iPhone Settings, go to Accessibility, Touch, Back Tap, Double Tap, then choose your Delayd Log Expense shortcut.",
+            action: .openSettings
         ),
         QuickCaptureStep(
             number: "3",
@@ -937,8 +1328,10 @@ private struct QuickCaptureSetupSheet: View {
                     .font(AppTypography.caption)
                     .foregroundStyle(AppColors.textSecondary(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)
-
-                setupActions
+                Text("iOS does not provide an App Store-safe link directly to Accessibility > Touch > Back Tap, so Settings may still need manual navigation from there.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
 
                 PrimaryButton("Done", action: onDone)
             }
@@ -947,33 +1340,6 @@ private struct QuickCaptureSetupSheet: View {
             .padding(.bottom, AppSpacing.xl)
         }
         .background(AppColors.background(for: colorScheme).ignoresSafeArea())
-    }
-
-    private var setupActions: some View {
-        VStack(spacing: AppSpacing.sm) {
-            Button {
-                if let url = URL(string: "shortcuts://") {
-                    openURL(url)
-                }
-            } label: {
-                setupActionLabel(title: "Open Shortcuts", systemImage: "shortcuts")
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    openURL(url)
-                }
-            } label: {
-                setupActionLabel(title: "Open Settings", systemImage: "gearshape.fill")
-            }
-            .buttonStyle(.plain)
-
-            Text("iOS does not provide an App Store-safe link directly to Accessibility > Touch > Back Tap, so Settings may still need manual navigation from there.")
-                .font(AppTypography.caption)
-                .foregroundStyle(AppColors.textTertiary(for: colorScheme))
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 
     private func setupActionLabel(title: String, systemImage: String) -> some View {
@@ -1064,6 +1430,25 @@ private struct QuickCaptureSetupSheet: View {
                     .font(AppTypography.callout)
                     .foregroundStyle(AppColors.textSecondary(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)
+
+                if let action = step.action {
+                    Button {
+                        switch action {
+                        case .openShortcuts:
+                            if let url = URL(string: "shortcuts://") {
+                                openURL(url)
+                            }
+                        case .openSettings:
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                openURL(url)
+                            }
+                        }
+                    } label: {
+                        setupActionLabel(title: action.buttonTitle, systemImage: action.systemImage)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, AppSpacing.sm)
+                }
             }
 
             Spacer(minLength: 0)
@@ -1083,6 +1468,30 @@ private struct QuickCaptureStep: Identifiable {
     let icon: String
     let title: String
     let detail: String
+    var action: QuickCaptureStepAction?
+}
+
+private enum QuickCaptureStepAction {
+    case openShortcuts
+    case openSettings
+
+    var buttonTitle: String {
+        switch self {
+        case .openShortcuts:
+            return "Open Shortcuts"
+        case .openSettings:
+            return "Open Settings"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .openShortcuts:
+            return "shortcuts"
+        case .openSettings:
+            return "gearshape.fill"
+        }
+    }
 }
 
 private struct SettingsSheetHeader: View {
@@ -1361,10 +1770,6 @@ private struct TonePickerSheet: View {
                                     .foregroundStyle(AppColors.textTertiary(for: colorScheme))
                                     .fixedSize(horizontal: false, vertical: true)
 
-                                Text("\(ToneCopyLibrary.totalLineCount(for: tone) + ImpactRevealCopy.totalLineCount(for: tone)) saved lines across reveals, insights, and reminders")
-                                    .font(AppTypography.captionMedium)
-                                    .foregroundStyle(AppColors.purplePrimary)
-                                    .fixedSize(horizontal: false, vertical: true)
                             }
 
                             Spacer(minLength: AppSpacing.sm)

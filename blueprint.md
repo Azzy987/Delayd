@@ -86,6 +86,11 @@ V1.1 Pro candidates:
 - Widgets
 - Receipt scanning
 
+Founder pricing reference (internal):
+- Monthly: `$2.99`
+- Yearly: `$14.99`
+- Lifetime: `$24.99`
+
 ---
 
 ## 5. Information Architecture

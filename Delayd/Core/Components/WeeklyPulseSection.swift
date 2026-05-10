@@ -18,6 +18,7 @@ struct WeeklyPulseSection: View {
     let protectedThisMonth: Double
     /// ISO 4217 currency code — used in the "protected" headline copy.
     var currencyCode: String
+    @State private var selectedPoint: CGPoint?
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -111,10 +112,12 @@ struct WeeklyPulseSection: View {
         GeometryReader { geo in
             let values = dailyDelayDays.map { CGFloat(max($0, 0)) }
             let maxValue = max(values.max() ?? 1, 1)
-            let spacing = values.count > 1 ? geo.size.width / CGFloat(values.count - 1) : 0
+            let safeWidth = LayoutGuard.dimension(geo.size.width, name: "WeeklyPulse.width")
+            let safeHeight = LayoutGuard.dimension(geo.size.height, name: "WeeklyPulse.height")
+            let spacing = values.count > 1 ? safeWidth / CGFloat(values.count - 1) : 0
             // Leave a tiny top/bottom inset so the line never touches edges.
             let inset: CGFloat = 4
-            let height = geo.size.height - inset * 2
+            let height = max(safeHeight - inset * 2, 0)
 
             let points: [CGPoint] = values.enumerated().map { index, value in
                 let x = spacing * CGFloat(index)
@@ -125,7 +128,7 @@ struct WeeklyPulseSection: View {
 
             ZStack {
                 // Soft fill under the curve
-                fillPath(points: points, height: geo.size.height)
+                fillPath(points: points, height: safeHeight)
                     .fill(
                         LinearGradient(
                             colors: [
@@ -153,7 +156,40 @@ struct WeeklyPulseSection: View {
                         .position(last)
                         .shadow(color: AppColors.purplePrimary.opacity(0.45), radius: 4, x: 0, y: 0)
                 }
+
+                if let selectedPoint {
+                    Path { path in
+                        path.move(to: CGPoint(x: selectedPoint.x, y: inset))
+                        path.addLine(to: CGPoint(x: selectedPoint.x, y: safeHeight - inset))
+                    }
+                    .stroke(
+                        AppColors.purplePrimary.opacity(0.7),
+                        style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [4, 4])
+                    )
+
+                    Circle()
+                        .fill(AppColors.purplePrimary)
+                        .frame(width: 10, height: 10)
+                        .position(selectedPoint)
+                        .shadow(color: AppColors.purplePrimary.opacity(0.45), radius: 4, x: 0, y: 0)
+                }
             }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        guard !points.isEmpty else { return }
+                        let safeX = min(max(gesture.location.x, 0), safeWidth)
+                        let rawIndex = spacing > 0 ? Int(round(safeX / spacing)) : 0
+                        let index = min(max(rawIndex, 0), points.count - 1)
+                        selectedPoint = points[index]
+                    }
+                    .onEnded { _ in
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            selectedPoint = nil
+                        }
+                    }
+            )
         }
     }
 

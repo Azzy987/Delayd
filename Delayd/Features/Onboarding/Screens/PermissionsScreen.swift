@@ -41,6 +41,12 @@ struct PermissionsScreen: View {
                     .foregroundStyle(AppColors.textSecondary(for: colorScheme))
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
+
+                Text("No login required. Your data stays on this device.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
             }
             .staggeredAppear(delay: 0.05, trigger: appearToken)
 

@@ -16,6 +16,7 @@ struct KavsoftCarousel<Data: RandomAccessCollection, Content: View>: View
 where Data.Index == Int {
     @Binding var currentIndex: Int
     let data: Data
+    let isDragEnabled: Bool
     let content: (Data.Element, Int) -> Content
 
     @State private var dragOffset: CGFloat = 0
@@ -31,10 +32,12 @@ where Data.Index == Int {
     init(
         currentIndex: Binding<Int>,
         data: Data,
+        isDragEnabled: Bool = true,
         @ViewBuilder content: @escaping (Data.Element, Int) -> Content
     ) {
         self._currentIndex = currentIndex
         self.data = data
+        self.isDragEnabled = isDragEnabled
         self.content = content
     }
 
@@ -44,58 +47,70 @@ where Data.Index == Int {
             let height = proxy.size.height
             let baseOffset = -CGFloat(currentIndex) * width
 
-            ZStack {
-                ForEach(Array(data.enumerated()), id: \.offset) { index, element in
-                    pageView(element: element, index: index, width: width, height: height)
-                        .offset(x: CGFloat(index) * width)
+            carouselPages(width: width, height: height, baseOffset: baseOffset)
+                .environment(
+                    \.onboardingDragProgress,
+                    OnboardingDragProgress(
+                        activeIndex: currentIndex,
+                        dragFraction: width > 0 ? Double(dragOffset / width) : 0
+                    )
+                )
+        }
+    }
+
+    @ViewBuilder
+    private func carouselPages(width: CGFloat, height: CGFloat, baseOffset: CGFloat) -> some View {
+        let pages = ZStack {
+            ForEach(Array(data.enumerated()), id: \.offset) { index, element in
+                pageView(element: element, index: index, width: width, height: height)
+                    .offset(x: CGFloat(index) * width)
+            }
+        }
+        .frame(width: width, alignment: .leading)
+        .offset(x: baseOffset + dragOffset)
+        // Programmatic index changes (Continue tap) use this spring; the
+        // drag-end branch wraps its own withAnimation so swipes still
+        // settle with the same feel.
+        .animation(.spring(response: 0.55, dampingFraction: 0.78), value: currentIndex)
+        .contentShape(Rectangle())
+
+        if isDragEnabled {
+            pages.gesture(dragGesture(width: width))
+        } else {
+            pages
+        }
+    }
+
+    private func dragGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 8)
+            .updating($isDragging) { _, state, _ in state = true }
+            .onChanged { value in
+                let raw = value.translation.width
+                // Rubber-band at the ends so swiping past page 0 or
+                // the last page resists rather than tearing off-screen.
+                if (currentIndex == 0 && raw > 0) ||
+                    (currentIndex == data.count - 1 && raw < 0) {
+                    dragOffset = raw / 2.5
+                } else {
+                    dragOffset = raw
                 }
             }
-            .frame(width: width, alignment: .leading)
-            .offset(x: baseOffset + dragOffset)
-            // Programmatic index changes (Continue tap) use this spring; the
-            // drag-end branch wraps its own withAnimation so swipes still
-            // settle with the same feel.
-            .animation(.spring(response: 0.55, dampingFraction: 0.78), value: currentIndex)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 8)
-                    .updating($isDragging) { _, state, _ in state = true }
-                    .onChanged { value in
-                        let raw = value.translation.width
-                        // Rubber-band at the ends so swiping past page 0 or
-                        // the last page resists rather than tearing off-screen.
-                        if (currentIndex == 0 && raw > 0) ||
-                            (currentIndex == data.count - 1 && raw < 0) {
-                            dragOffset = raw / 2.5
-                        } else {
-                            dragOffset = raw
-                        }
-                    }
-                    .onEnded { value in
-                        let predicted = value.predictedEndTranslation.width
-                        let threshold = width * 0.22
-                        var newIndex = currentIndex
+            .onEnded { value in
+                let predicted = value.predictedEndTranslation.width
+                let threshold = width * 0.22
+                var newIndex = currentIndex
 
-                        if predicted < -threshold && currentIndex < data.count - 1 {
-                            newIndex = currentIndex + 1
-                        } else if predicted > threshold && currentIndex > 0 {
-                            newIndex = currentIndex - 1
-                        }
+                if predicted < -threshold && currentIndex < data.count - 1 {
+                    newIndex = currentIndex + 1
+                } else if predicted > threshold && currentIndex > 0 {
+                    newIndex = currentIndex - 1
+                }
 
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) {
-                            currentIndex = newIndex
-                            dragOffset = 0
-                        }
-                    }
-            )
-            .environment(
-                \.onboardingDragProgress,
-                OnboardingDragProgress(
-                    activeIndex: currentIndex,
-                    dragFraction: width > 0 ? Double(dragOffset / width) : 0
-                )
-            )
-        }
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) {
+                    currentIndex = newIndex
+                    dragOffset = 0
+                }
+            }
     }
 
     private func pageView(element: Data.Element, index: Int, width: CGFloat, height: CGFloat) -> some View {

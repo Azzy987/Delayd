@@ -15,6 +15,7 @@ struct NotificationsView: View {
     enum Filter: String, CaseIterable {
         case all = "All"
         case unread = "Unread"
+        case read = "Read"
     }
 
     var body: some View {
@@ -44,12 +45,12 @@ struct NotificationsView: View {
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
+                                Button {
                                     dismiss(item)
                                 } label: {
-                                    Label("Dismiss", systemImage: "xmark")
+                                    Label("Archive", systemImage: "archivebox.fill")
                                 }
-                                .tint(AppColors.negative)
+                                .tint(AppColors.textSecondary(for: colorScheme))
                             }
                     }
                 }
@@ -69,7 +70,14 @@ struct NotificationsView: View {
     }
 
     private var visibleItems: [NotificationItem] {
-        filter == .all ? items : items.filter { !$0.isRead }
+        switch filter {
+        case .all:
+            items
+        case .unread:
+            items.filter { !$0.isRead }
+        case .read:
+            items.filter(\.isRead)
+        }
     }
 
     private var header: some View {
@@ -176,16 +184,17 @@ struct NotificationsView: View {
 
                     Button {
                         withAnimation(.easeOut(duration: 0.22)) {
-                            dismiss(item)
+                            markRead(item)
                         }
                     } label: {
-                        Image(systemName: "xmark")
+                        Image(systemName: item.isRead ? "checkmark" : "envelope.open.fill")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                            .foregroundStyle(item.isRead ? AppColors.positive : AppColors.purplePrimary)
                             .frame(width: 24, height: 24)
                             .background(AppColors.softSurface(for: colorScheme), in: Circle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(item.isRead ? "Read" : "Mark notification read")
                 }
 
                 Text(item.body)

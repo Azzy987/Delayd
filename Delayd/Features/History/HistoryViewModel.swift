@@ -176,7 +176,7 @@ final class HistoryViewModel {
         if label.contains("coffee") || label.contains("cafe") || label.contains("tea") {
             return "cup.and.saucer.fill"
         }
-        if label.contains("dinner") || label.contains("lunch") || label.contains("food") || label.contains("restaurant") {
+        if label.contains("dinner") || label.contains("lunch") || label.contains("food") || label.contains("restaurant") || label.contains("dosa") || label.contains("idli") || label.contains("biryani") || label.contains("pizza") || label.contains("burger") {
             return "fork.knife"
         }
         if label.contains("shopping") || label.contains("shop") || label.contains("store") {
@@ -212,6 +212,7 @@ struct GoalFilterOption: Identifiable, Equatable, Hashable {
     let id: UUID
     let name: String
     let emoji: String
+    var category: GoalCategory = .custom
 }
 
 struct HistoryDaySection: Identifiable, Equatable {

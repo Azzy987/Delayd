@@ -63,9 +63,9 @@ struct ReadyScreen: View {
             }
 
             // Full-screen native accent overlay; keeps the final screen light
-            // without depending on a heavy animation asset.
+            // using the bundled Lottie confetti animation.
             if showConfetti {
-                ReadyCelebrationOverlay(isVisible: $showConfetti)
+                LottieOverlay(animationName: "Confetti", isPlaying: $showConfetti)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
             }
@@ -88,54 +88,6 @@ struct ReadyScreen: View {
     private func triggerConfetti() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             showConfetti = true
-        }
-    }
-}
-
-private struct ReadyCelebrationOverlay: View {
-    @Binding var isVisible: Bool
-    @State private var animate = false
-
-    private let particles: [(x: CGFloat, y: CGFloat, delay: Double, color: Color)] = [
-        (-126, -210, 0.00, AppColors.purplePrimary),
-        (-72, -256, 0.04, AppColors.warning),
-        (-24, -198, 0.08, AppColors.positive),
-        (46, -246, 0.03, AppColors.purplePrimary),
-        (112, -204, 0.07, AppColors.warning),
-        (-142, -132, 0.10, AppColors.positive),
-        (132, -124, 0.12, AppColors.purplePrimary)
-    ]
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                ForEach(Array(particles.enumerated()), id: \.offset) { index, particle in
-                    Capsule()
-                        .fill(particle.color.opacity(0.92))
-                        .frame(width: index.isMultiple(of: 2) ? 8 : 6, height: index.isMultiple(of: 2) ? 22 : 16)
-                        .rotationEffect(.degrees(animate ? Double(index * 38 + 70) : Double(index * 16)))
-                        .offset(
-                            x: animate ? particle.x : particle.x * 0.28,
-                            y: animate ? particle.y : -42
-                        )
-                        .opacity(animate ? 0 : 1)
-                        .animation(
-                            .easeOut(duration: 1.1)
-                            .delay(particle.delay),
-                            value: animate
-                        )
-                }
-            }
-            .position(x: proxy.size.width / 2, y: proxy.size.height * 0.54)
-        }
-        .onAppear {
-            animate = false
-            withAnimation {
-                animate = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) {
-                isVisible = false
-            }
         }
     }
 }

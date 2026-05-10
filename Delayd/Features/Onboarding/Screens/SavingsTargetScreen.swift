@@ -79,6 +79,7 @@ struct SavingsTargetScreen: View {
                         }
                     }
                 }
+                .scrollDismissesKeyboard(.interactively)
 
                 VStack(spacing: AppSpacing.md) {
                     pageIndicator(current: 4, total: OnboardingViewModel.totalSteps)
@@ -95,6 +96,17 @@ struct SavingsTargetScreen: View {
             }
             .padding(.horizontal, AppSpacing.lg)
             .padding(.bottom, AppSpacing.lg)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if dragProgress.activeIndex == Self.stepIndex, isFocused {
+                    Spacer()
+                    Button("Done") {
+                        isFocused = false
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                }
+            }
         }
         .onAppear {
             if dragProgress.activeIndex == Self.stepIndex {
@@ -120,8 +132,6 @@ struct SavingsTargetScreen: View {
             Text(displayValue > 0 ? formatted(displayValue) : "0")
                 .font(.system(size: 44, weight: .bold, design: .monospaced))
                 .foregroundStyle(AppColors.textPrimary(for: colorScheme))
-                .contentTransition(.numericText(value: displayValue))
-                .animation(.spring(response: 0.34, dampingFraction: 0.78), value: displayValue)
 
             Text("/mo")
                 .font(.system(size: 18, weight: .semibold))
@@ -204,8 +214,7 @@ struct SavingsTargetScreen: View {
                         lineWidth: isSelected ? 1.5 : 1
                     )
             )
-            .scaleEffect(isSelected ? 1.01 : 1)
-            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
+            .animation(.easeInOut(duration: 0.18), value: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -284,8 +293,16 @@ struct SavingsTargetScreen: View {
                     .foregroundStyle(AppColors.textPrimary(for: colorScheme))
                     .keyboardType(.numberPad)
                     .minimumScaleFactor(0.62)
+                    .lineLimit(1)
                     .focused($isFocused)
+                    .onChange(of: monthlyTarget) { _, newValue in
+                        let filtered = newValue.filter { $0.isNumber }
+                        if filtered != newValue {
+                            monthlyTarget = filtered
+                        }
+                    }
             }
+
         }
         .delaydCard()
     }
@@ -405,11 +422,15 @@ struct SavingsTargetScreen: View {
     }
 
     private func formatted(_ value: Double) -> String {
+        Self.decimalFormatter.string(from: NSNumber(value: value)) ?? "\(Int(value))"
+    }
+
+    private static let decimalFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value))"
-    }
+        return formatter
+    }()
 }
 
 private extension Array where Element: Hashable {

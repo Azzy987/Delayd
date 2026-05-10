@@ -134,6 +134,9 @@ enum ToneCopy {
         /// variant. `nil` when there's no slip to surface.
         var slippedGoalName: String?
         var slippedGoalDays: Int
+        /// Whether the active goal is net-ahead after protection offsets.
+        var isAhead: Bool
+        var aheadDays: Int
 
         /// True if there is meaningful spending this week. When false we
         /// fall back to a single supportive line per tone.
@@ -149,6 +152,8 @@ enum ToneCopy {
             weeklyDelayPercent: nil,
             slippedGoalName: nil,
             slippedGoalDays: 0,
+            isAhead: false,
+            aheadDays: 0,
             hasActivity: false
         ))
     }
@@ -162,6 +167,10 @@ enum ToneCopy {
     /// Variants the context can't support are skipped, then the day-of-year
     /// modulo picks among what's left. Falls back to a tone line.
     static func smartInsight(tone: DelaydTone, context: InsightContext) -> String {
+        if context.isAhead, context.aheadDays > 0 {
+            return aheadVariant(tone: tone, days: context.aheadDays)
+        }
+
         // Build the candidate pool from whatever the context can support.
         var candidates: [String] = []
 
@@ -242,6 +251,22 @@ enum ToneCopy {
             return "\(goalName) slipped \(days) \(dayWord). The deadline is moving — are you?"
         case .drillSergeant:
             return "\(goalName) slipped \(days) \(dayWord). Tighten the next choice and stop the drift."
+        }
+    }
+
+    private static func aheadVariant(tone: DelaydTone, days: Int) -> String {
+        let dayWord = days == 1 ? "day" : "days"
+        switch tone {
+        case .motivational:
+            return "You're ahead by \(days) \(dayWord). Keep this rhythm and your dream arrives sooner. 💜"
+        case .coach:
+            return "Ahead by \(days) \(dayWord). Protect this momentum and keep running clean. 🎯"
+        case .neutral:
+            return "Net projection: ahead by \(days) \(dayWord) after protected contributions."
+        case .toughLove:
+            return "Ahead by \(days) \(dayWord). Good. Don't hand it back on impulse."
+        case .drillSergeant:
+            return "Ahead \(days) \(dayWord). Hold formation and protect the lead."
         }
     }
 

@@ -15,6 +15,7 @@ struct GoalDetailsScreen: View {
     @State private var targetDate: Date
     @State private var figureOutLater: Bool
     @State private var appearToken = UUID()
+    @State private var isDatePickerPresented = false
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
@@ -81,26 +82,58 @@ struct GoalDetailsScreen: View {
                             }
 
                             inputCard(title: "Target amount") {
-                                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
-                                    Text(CurrencyFormatter.symbol(for: currencyCode))
-                                        .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                                    HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
+                                        Text(CurrencyFormatter.symbol(for: currencyCode))
+                                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                            .foregroundStyle(AppColors.textSecondary(for: colorScheme))
 
-                                    TextField("120000", text: $goalAmount)
-                                        .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(AppColors.textPrimary(for: colorScheme))
-                                        .keyboardType(.numberPad)
-                                        .minimumScaleFactor(0.72)
-                                        .focused($focusedField, equals: .amount)
+                                        TextField("120000", text: $goalAmount)
+                                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                            .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                                            .keyboardType(.numberPad)
+                                            .minimumScaleFactor(0.72)
+                                            .lineLimit(1)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .focused($focusedField, equals: .amount)
+                                            .onChange(of: goalAmount) { _, newValue in
+                                                let filtered = newValue.filter { $0.isNumber }
+                                                if filtered != newValue {
+                                                    goalAmount = filtered
+                                                }
+                                            }
+                                    }
+
                                 }
                             }
 
                             inputCard(title: "Target date") {
                                 VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                                    DatePicker("Dream date", selection: $targetDate, displayedComponents: .date)
-                                        .datePickerStyle(.compact)
-                                        .disabled(figureOutLater)
-                                        .opacity(figureOutLater ? 0.45 : 1)
+                                    Button {
+                                        focusedField = nil
+                                        isDatePickerPresented = true
+                                    } label: {
+                                        HStack(spacing: AppSpacing.sm) {
+                                            Image(systemName: "calendar")
+                                                .font(.system(size: 15, weight: .semibold))
+                                                .foregroundStyle(AppColors.purplePrimary)
+
+                                            Text(targetDate.formatted(.dateTime.day().month(.wide).year()))
+                                                .font(AppTypography.bodyMedium)
+                                                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+
+                                            Spacer()
+
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                                        }
+                                        .padding(AppSpacing.md)
+                                        .background(AppColors.background(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.md))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(figureOutLater)
+                                    .opacity(figureOutLater ? 0.45 : 1)
 
                                     Toggle("I'll figure it out later", isOn: $figureOutLater)
                                         .font(AppTypography.callout)
@@ -111,6 +144,7 @@ struct GoalDetailsScreen: View {
                         .staggeredAppear(delay: 0.18, trigger: appearToken)
                     }
                 }
+                .scrollDismissesKeyboard(.interactively)
 
                 VStack(spacing: AppSpacing.md) {
                     pageIndicator(current: 3, total: OnboardingViewModel.totalSteps)
@@ -127,6 +161,22 @@ struct GoalDetailsScreen: View {
             }
             .padding(.horizontal, AppSpacing.lg)
             .padding(.bottom, AppSpacing.lg)
+        }
+        .sheet(isPresented: $isDatePickerPresented) {
+            datePickerSheet
+                .presentationDetents([.height(520)])
+                .presentationDragIndicator(.visible)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if dragProgress.activeIndex == Self.stepIndex, focusedField != nil {
+                    Spacer()
+                    Button("Done") {
+                        focusedField = nil
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                }
+            }
         }
         .onAppear {
             if dragProgress.activeIndex == Self.stepIndex {
@@ -145,6 +195,39 @@ struct GoalDetailsScreen: View {
         }
         .onChange(of: figureOutLater) { _, newValue in
             goalDate = newValue ? nil : targetDate
+        }
+    }
+
+    private var datePickerSheet: some View {
+        NavigationStack {
+            VStack(spacing: AppSpacing.lg) {
+                DatePicker("Dream date", selection: $targetDate, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .tint(AppColors.purplePrimary)
+                    .padding(.horizontal, AppSpacing.md)
+
+                PrimaryButton("Done") {
+                    isDatePickerPresented = false
+                }
+                .padding(.horizontal, AppSpacing.lg)
+                .padding(.bottom, AppSpacing.lg)
+            }
+            .padding(.top, AppSpacing.sm)
+            .background(AppColors.background(for: colorScheme).ignoresSafeArea())
+            .navigationTitle("Dream date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { isDatePickerPresented = false }) {
+                        Text("Done")
+                            .font(.system(size: 16, weight: .semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 
@@ -183,6 +266,7 @@ struct GoalDetailsScreen: View {
         }
         .delaydCard()
     }
+
 }
 
 private struct GoalDetailsPreviewHost: View {

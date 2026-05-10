@@ -132,7 +132,7 @@ enum ShortcutPaymentMethod: String, AppEnum {
 
 @available(iOS 17.0, *)
 struct QuickCaptureExpenseIntent: AppIntent {
-    static let title: LocalizedStringResource = "Delayd Quick Capture"
+    static let title: LocalizedStringResource = "Delayd Log Expense"
     static let description = IntentDescription(
         "Capture a spend from Shortcuts, Back Tap, Action Button, or Lock Screen controls and return its dream delay.",
         categoryName: "Logging"
@@ -516,24 +516,13 @@ final class QuickLogIntentBridge {
 struct DelaydAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
-            intent: QuickLogIntent(),
-            phrases: [
-                "Open \(.applicationName) quick log",
-                "Open \(.applicationName) to log",
-                "Log with \(.applicationName)",
-            ],
-            shortTitle: "Open Quick Log",
-            systemImageName: "plus.circle.fill"
-        )
-
-        AppShortcut(
             intent: QuickCaptureExpenseIntent(),
             phrases: [
-                "\(.applicationName) quick capture",
-                "Quick capture in \(.applicationName)",
-                "Capture spending in \(.applicationName)",
+                "\(.applicationName) log expense",
+                "Log expense in \(.applicationName)",
+                "Quick log expense in \(.applicationName)",
             ],
-            shortTitle: "Delayd Quick Capture",
+            shortTitle: "Log Expense",
             systemImageName: "clock.badge.plus"
         )
     }

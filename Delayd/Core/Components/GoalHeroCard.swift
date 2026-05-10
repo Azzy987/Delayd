@@ -60,13 +60,15 @@ struct GoalHeroCard: View {
 
     private var progressBlock: some View {
         GeometryReader { proxy in
+            let safeProgress = LayoutGuard.unit(clampedProgress, name: "GoalHeroCard.progress")
+            let safeWidth = LayoutGuard.dimension(proxy.size.width * safeProgress, name: "GoalHeroCard.progressWidth")
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(.white.opacity(0.25))
 
                 Capsule()
                     .fill(.white)
-                    .frame(width: proxy.size.width * clampedProgress)
+                    .frame(width: safeWidth)
             }
         }
         .frame(height: 8)
@@ -104,6 +106,7 @@ extension GoalHeroCard {
     enum Status: Equatable {
         case onPace
         case delayed(days: Int)
+        case ahead(days: Int)
 
         var title: String {
             switch self {
@@ -111,6 +114,8 @@ extension GoalHeroCard {
                 "On pace"
             case .delayed(let days):
                 "Delayed by \(days) days"
+            case .ahead(let days):
+                "Ahead by \(days) days"
             }
         }
 
@@ -120,6 +125,8 @@ extension GoalHeroCard {
                 AppColors.positive
             case .delayed:
                 AppColors.warning
+            case .ahead:
+                AppColors.positive
             }
         }
 
@@ -129,6 +136,8 @@ extension GoalHeroCard {
                 AppColors.softPositiveBackground
             case .delayed:
                 AppColors.softWarningBackground
+            case .ahead:
+                AppColors.softPositiveBackground
             }
         }
     }

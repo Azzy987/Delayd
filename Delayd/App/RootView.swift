@@ -18,6 +18,7 @@ struct RootView: View {
     @State private var pendingImpact: DelayImpact?
     @State private var pendingBoostImpact: DreamBoostImpact?
     @State private var homeRefreshToken = 0
+    @State private var planRefreshToken = 0
     @State private var historyRefreshToken = 0
     @State private var homeViewModel = HomeViewModel()
     /// Amount pre-filled into the sheet when launched via QuickLogIntent
@@ -103,6 +104,7 @@ struct RootView: View {
                 if quickCaptureObserver == nil {
                     quickCaptureObserver = QuickCaptureBroadcast.observeDidLogExpense {
                         homeRefreshToken &+= 1
+                        planRefreshToken &+= 1
                         historyRefreshToken &+= 1
                     }
                 }
@@ -110,6 +112,7 @@ struct RootView: View {
             .onReceive(NotificationCenter.default.publisher(for: QuickCaptureBroadcast.foundationName)) { _ in
                 // Same-process fallback (intent ran inside the app).
                 homeRefreshToken &+= 1
+                planRefreshToken &+= 1
                 historyRefreshToken &+= 1
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -119,6 +122,7 @@ struct RootView: View {
                 // background data change. Cheap — re-runs the same query
                 // HomeView already runs at launch.
                 homeRefreshToken &+= 1
+                planRefreshToken &+= 1
                 historyRefreshToken &+= 1
             }
             .onOpenURL { url in
@@ -126,6 +130,8 @@ struct RootView: View {
                 guard url.scheme == "delayd" else { return }
 
                 switch url.host?.lowercased() {
+                case "home":
+                    selectedTab = .home
                 case "quicklog":
                     isQuickLogPresented = true
                 case "history":
@@ -235,9 +241,15 @@ struct RootView: View {
                 onLogged: { impact in
                     pendingImpact = impact
                     homeRefreshToken += 1
+                    planRefreshToken += 1
                     historyRefreshToken += 1
                     shouldPresentRevealAfterQuickLog = true
                     isQuickLogPresented = false
+                    Task {
+                        await SettingsViewModel.refreshNotificationSchedulesIfNeeded(
+                            modelContainer: modelContext.container
+                        )
+                    }
                 }
             )
             .onAppear { clearIntentPrefill() }
@@ -247,6 +259,7 @@ struct RootView: View {
             isPresented: $isSavedHistoryPresented,
             onDismiss: {
                 homeRefreshToken &+= 1
+                planRefreshToken &+= 1
             }
         ) {
             SavedHistorySheet(
@@ -284,8 +297,14 @@ struct RootView: View {
                 onProtected: { impact in
                     pendingBoostImpact = impact
                     homeRefreshToken += 1
+                    planRefreshToken += 1
                     shouldPresentBoostRevealAfterProtectDream = true
                     isProtectDreamPresented = false
+                    Task {
+                        await SettingsViewModel.refreshNotificationSchedulesIfNeeded(
+                            modelContainer: modelContext.container
+                        )
+                    }
                 }
             )
             .delaydPageSheet(detents: [.large])
@@ -350,6 +369,7 @@ struct RootView: View {
             try? await Task.sleep(for: .milliseconds(220))
             pendingImpact = nil
             homeRefreshToken += 1
+            planRefreshToken += 1
 
             guard shouldOfferProPrompt else { return }
             presentPostRevealProPromptIfNeeded()
@@ -365,6 +385,7 @@ struct RootView: View {
             try? await Task.sleep(for: .milliseconds(220))
             pendingBoostImpact = nil
             homeRefreshToken += 1
+            planRefreshToken += 1
         }
     }
 
@@ -390,6 +411,7 @@ struct RootView: View {
 
     @MainActor
     private func presentPostRevealProPromptIfNeeded() {
+        guard !ProEntitlementService.isUnlocked else { return }
         guard !UserDefaults.standard.bool(forKey: postRevealProPromptShownKey) else { return }
         UserDefaults.standard.set(true, forKey: postRevealProPromptShownKey)
 
@@ -414,7 +436,6 @@ struct RootView: View {
                     }
                 )
             }
-            .ignoresSafeArea(.keyboard)
     }
 
     @ViewBuilder
@@ -430,7 +451,7 @@ struct RootView: View {
                 onOpenSavedHistory: { isSavedHistoryPresented = true }
             )
         case .plan:
-            PlanView()
+            PlanView(refreshToken: planRefreshToken)
         case .history:
             HistoryView(refreshToken: historyRefreshToken)
         case .settings:
@@ -476,12 +497,16 @@ private enum DelaydTab: CaseIterable, Hashable, Identifiable {
 
     /// Phosphor (Bold weight) custom symbol shipped via Assets.xcassets.
     /// Matches the Paylix-style icon vibe better than the SF Symbol set.
-    var phosphorIcon: PhosphorIcon.Name {
+    func phosphorIcon(isSelected: Bool) -> PhosphorIcon.Name {
         switch self {
-        case .home: .house
-        case .plan: .wallet
-        case .history: .chartBar
-        case .settings: .gearSix
+        case .home:
+            return isSelected ? .homeFilledCustom : .homeOutline
+        case .plan:
+            return isSelected ? .goalFilledCustom : .goalOutline
+        case .history:
+            return .clock
+        case .settings:
+            return .gearSix
         }
     }
 }
@@ -695,9 +720,16 @@ private struct DelaydTabBar: View {
         let unselectedColor = AppColors.textTertiary(for: colorScheme)
         Button(action: { onSelect(tab) }) {
             VStack(spacing: 4) {
-                PhosphorIcon(tab.phosphorIcon, size: 24)
-                    .foregroundStyle(isSelected ? selectedColor : unselectedColor)
-                    .opacity(isSelected ? 1 : 0.85)
+                if tab == .settings || tab == .history {
+                    Image(systemName: isSelected ? tab.filledSystemImage : tab.systemImage)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(isSelected ? selectedColor : unselectedColor)
+                        .opacity(isSelected ? 1 : 0.85)
+                } else {
+                    PhosphorIcon(tab.phosphorIcon(isSelected: isSelected), size: 24)
+                        .foregroundStyle(isSelected ? selectedColor : unselectedColor)
+                        .opacity(isSelected ? 1 : 0.85)
+                }
                 Text(tab.title)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? selectedColor : unselectedColor)

@@ -18,6 +18,9 @@ final class QuickLogViewModel {
     private var monthlyTarget: Double
     private let calculator: DelayCalculator
     private var modelContainer: ModelContainer?
+    private var thisWeekSpend: Double = 0
+    private var previousWeekSpend: Double = 0
+    private var thisWeekExpenseCount: Int = 0
     /// ISO 4217 currency code loaded from settings. Drives the amount preview.
     /// Defaults to the device locale so the first frame matches the user's
     /// region (avoids a `$` flash before settings load on Indian devices).
@@ -65,6 +68,30 @@ final class QuickLogViewModel {
         (previewImpact?.delayDays ?? 0) >= 7
     }
 
+    func delayCoachCopy(isProUnlocked: Bool) -> String? {
+        guard amount > 0 else { return nil }
+        guard let impact = previewImpact else { return nil }
+
+        guard isProUnlocked else {
+            return "Pro delay coach flags risk before you log high-impact spends."
+        }
+
+        if impact.delayDays >= 7 {
+            return "High-impact spend: this pushes \(impact.affectedGoal.name.delaydGoalTitleCased) by \(impact.delayDays) days."
+        }
+
+        if thisWeekExpenseCount >= 8, amount <= max(monthlyTarget / 20, 1) {
+            return "Frequent-spend pattern this week (\(thisWeekExpenseCount) logs). Even this adds \(impact.delayDays) day\(impact.delayDays == 1 ? "" : "s")."
+        }
+
+        if previousWeekSpend > 0, thisWeekSpend > previousWeekSpend * 1.12 {
+            let deltaPct = Int(((thisWeekSpend - previousWeekSpend) / previousWeekSpend * 100).rounded())
+            return "You're spending \(deltaPct)% more than last week. Logging this keeps delay drift visible."
+        }
+
+        return impact.suggestion
+    }
+
     var formattedAmountPreview: String {
         let sym = CurrencyFormatter.symbol(for: currencyCode)
         guard amount > 0 else { return "\(sym)0" }
@@ -110,6 +137,7 @@ final class QuickLogViewModel {
 
         monthlyTarget = settings.monthlySavingsTarget
         currencyCode = settings.defaultCurrency
+        await refreshRecentSpendSignals(modelContainer: modelContainer)
     }
 
     func logExpense() async -> DelayImpact? {
@@ -150,6 +178,26 @@ final class QuickLogViewModel {
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = value.rounded() == value ? 0 : 2
         return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value))"
+    }
+
+    private func refreshRecentSpendSignals(modelContainer: ModelContainer) async {
+        let repository = ExpenseRepository(modelContainer: modelContainer)
+        let calendar = Calendar.current
+        let now = Date()
+        let weekStart = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+        let previousWeekStart = calendar.date(byAdding: .day, value: -14, to: now) ?? now
+
+        let thisWeek = DateInterval(start: weekStart, end: now)
+        let previousWeek = DateInterval(start: previousWeekStart, end: weekStart)
+
+        async let thisWeekExpensesTask = repository.fetchAllSnapshots(in: thisWeek)
+        async let previousWeekExpensesTask = repository.fetchAllSnapshots(in: previousWeek)
+
+        let thisWeekExpenses = await thisWeekExpensesTask
+        let previousWeekExpenses = await previousWeekExpensesTask
+        thisWeekExpenseCount = thisWeekExpenses.count
+        thisWeekSpend = thisWeekExpenses.reduce(0) { $0 + $1.amount }
+        previousWeekSpend = previousWeekExpenses.reduce(0) { $0 + $1.amount }
     }
 }
 

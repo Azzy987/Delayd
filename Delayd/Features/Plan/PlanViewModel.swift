@@ -29,13 +29,33 @@ final class PlanViewModel {
     func load(modelContainer: ModelContainer) async {
         let repository = GoalRepository(modelContainer: modelContainer)
         let expenseRepository = ExpenseRepository(modelContainer: modelContainer)
+        let contributionRepository = DreamContributionRepository(modelContainer: modelContainer)
         let settingsRepository = SettingsRepository(modelContainer: modelContainer)
         let snapshot = await settingsRepository.fetchSnapshot()
+        let settings = await settingsRepository.fetch()
         let fetchedGoals = await repository.fetchActive()
-        let delayedDaysByGoal = await expenseRepository.delayDaysByGoal()
+        let defaultGoalId = snapshot.defaultGoalId
+        let orderedGoals: [Goal]
+        if let defaultGoalId,
+           let selected = fetchedGoals.first(where: { $0.id == defaultGoalId }) {
+            orderedGoals = [selected] + fetchedGoals.filter { $0.id != defaultGoalId }
+        } else {
+            orderedGoals = fetchedGoals
+        }
+        let delayedDaysByGoal = await expenseRepository.totalHistoricalDelayDaysByGoal()
+        let netStatusByGoal = await contributionRepository.netStatusByGoal(
+            totalDelayDaysByGoal: delayedDaysByGoal,
+            monthlySavingsTarget: settings.monthlySavingsTarget
+        )
         let code = snapshot.defaultCurrency
-        goals = fetchedGoals.map { goal in
-            PlanGoal(goal: goal, delayedDays: delayedDaysByGoal[goal.id] ?? 0, currencyCode: code)
+        goals = orderedGoals.map { goal in
+            let net = netStatusByGoal[goal.id] ?? .onPace
+            return PlanGoal(
+                goal: goal,
+                delayedDays: net.delayedDays,
+                aheadDays: net.aheadDays,
+                currencyCode: code
+            )
         }
     }
 
@@ -91,6 +111,7 @@ struct PlanGoal: Identifiable, Equatable {
     var progress: Double
     var daysRemaining: Int
     var delayedDays: Int
+    var aheadDays: Int
     var warningText: String?
     /// ISO 4217 currency code from UserSettings — drives amount formatting.
     var currencyCode: String
@@ -104,6 +125,7 @@ struct PlanGoal: Identifiable, Equatable {
         progress: Double,
         daysRemaining: Int,
         delayedDays: Int = 0,
+        aheadDays: Int = 0,
         warningText: String? = nil,
         currencyCode: String = CurrencyFormatter.localeDefaultCurrencyCode
     ) {
@@ -112,9 +134,10 @@ struct PlanGoal: Identifiable, Equatable {
         self.category = category
         self.currentAmount = currentAmount
         self.targetAmount = targetAmount
-        self.progress = progress
+        self.progress = progress.isFinite ? min(max(progress, 0), 1) : 0
         self.daysRemaining = daysRemaining
         self.delayedDays = delayedDays
+        self.aheadDays = aheadDays
         self.warningText = warningText
         self.currencyCode = currencyCode
     }
@@ -136,7 +159,20 @@ struct PlanGoal: Identifiable, Equatable {
     }
 
     var heroStatus: GoalHeroCard.Status {
-        delayedDays > 0 ? .delayed(days: delayedDays) : .onPace
+        if aheadDays > 0 {
+            return .ahead(days: aheadDays)
+        }
+        return delayedDays > 0 ? .delayed(days: delayedDays) : .onPace
+    }
+
+    var timelineSummaryText: String {
+        if aheadDays > 0 {
+            return "\(aheadDays) \(aheadDays == 1 ? "day" : "days") ahead"
+        }
+        if delayedDays > 0 {
+            return "\(delayedDays) \(delayedDays == 1 ? "day" : "days") delayed"
+        }
+        return "On pace"
     }
 
 }
@@ -153,8 +189,15 @@ extension String {
 }
 
 extension PlanGoal {
-    init(goal: Goal, delayedDays: Int = 0, warningText: String? = nil, currencyCode: String = CurrencyFormatter.localeDefaultCurrencyCode) {
-        let progress = goal.targetAmount > 0 ? min(max(goal.currentAmount / goal.targetAmount, 0), 1) : 0
+    init(
+        goal: Goal,
+        delayedDays: Int = 0,
+        aheadDays: Int = 0,
+        warningText: String? = nil,
+        currencyCode: String = CurrencyFormatter.localeDefaultCurrencyCode
+    ) {
+        let rawProgress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0
+        let progress = rawProgress.isFinite ? min(max(rawProgress, 0), 1) : 0
         let daysRemaining: Int
         if let deadline = goal.deadline {
             daysRemaining = max(0, Calendar.current.dateComponents([.day], from: .now, to: deadline).day ?? 0)
@@ -171,6 +214,7 @@ extension PlanGoal {
             progress: progress,
             daysRemaining: daysRemaining,
             delayedDays: delayedDays,
+            aheadDays: aheadDays,
             warningText: warningText,
             currencyCode: currencyCode
         )

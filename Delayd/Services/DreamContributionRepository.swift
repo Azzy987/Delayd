@@ -13,6 +13,8 @@ struct DreamBoostImpact: Equatable {
     let currencyCode: String
     let previousTargetDate: Date?
     let improvedTargetDate: Date?
+    let recoveredDelayDays: Int
+    let netStatus: NetDelayStatus
 }
 
 @ModelActor
@@ -53,6 +55,11 @@ actor DreamContributionRepository {
         save()
         refreshWidget(goal: goal)
 
+        let totalHistoricalDelayDays = totalDelayDays(forGoalId: goal.id)
+        let recoveredDays = totalRecoveredDelayDays(forGoalId: goal.id, monthlySavingsTarget: monthlySavingsTarget)
+        let netStatus = netStatus(totalDelayDays: totalHistoricalDelayDays, recoveredDays: recoveredDays)
+        let recoveredFromContribution = recoveredDelayDays(forAmount: amount, monthlySavingsTarget: monthlySavingsTarget)
+
         return DreamBoostImpact(
             amount: amount,
             daysCloser: daysCloser,
@@ -64,7 +71,9 @@ actor DreamContributionRepository {
             location: location,
             currencyCode: currencyCode,
             previousTargetDate: goal.targetDate,
-            improvedTargetDate: improvedDate
+            improvedTargetDate: improvedDate,
+            recoveredDelayDays: recoveredFromContribution,
+            netStatus: netStatus
         )
     }
 
@@ -116,6 +125,34 @@ actor DreamContributionRepository {
         if let goal { refreshWidget(goal: goal) }
     }
 
+    func totalRecoveredDaysByGoal(monthlySavingsTarget: Double) async -> [UUID: Int] {
+        let descriptor = FetchDescriptor<DreamContribution>()
+        let contributions = (try? modelContext.fetch(descriptor)) ?? []
+        return Dictionary(grouping: contributions.compactMap { contribution -> (UUID, Int)? in
+            guard let goalId = contribution.linkedGoal?.id else { return nil }
+            let recovered = recoveredDelayDays(
+                forAmount: contribution.amount,
+                monthlySavingsTarget: monthlySavingsTarget
+            )
+            return (goalId, recovered)
+        }, by: \.0).mapValues { entries in
+            entries.reduce(0) { $0 + $1.1 }
+        }
+    }
+
+    func netStatusByGoal(
+        totalDelayDaysByGoal: [UUID: Int],
+        monthlySavingsTarget: Double
+    ) async -> [UUID: NetDelayStatus] {
+        let recoveredByGoal = await totalRecoveredDaysByGoal(monthlySavingsTarget: monthlySavingsTarget)
+        let goalIds = Set(totalDelayDaysByGoal.keys).union(recoveredByGoal.keys)
+        return goalIds.reduce(into: [UUID: NetDelayStatus]()) { partialResult, goalId in
+            let delayed = totalDelayDaysByGoal[goalId] ?? 0
+            let recovered = recoveredByGoal[goalId] ?? 0
+            partialResult[goalId] = netStatus(totalDelayDays: delayed, recoveredDays: recovered)
+        }
+    }
+
     private func daysMovedCloser(amount: Double, goal: Goal, previousAmount: Double, monthlySavingsTarget: Double) -> Int {
         if let targetDate = goal.targetDate {
             let today = Calendar.current.startOfDay(for: .now)
@@ -131,6 +168,38 @@ actor DreamContributionRepository {
 
         let dailyTarget = max(monthlySavingsTarget, 1) / 30.0
         return max(1, Int(ceil(amount / dailyTarget)))
+    }
+
+    private func recoveredDelayDays(forAmount amount: Double, monthlySavingsTarget: Double) -> Int {
+        let dailyTarget = max(monthlySavingsTarget, 1) / 30.0
+        return max(1, Int(ceil(amount / dailyTarget)))
+    }
+
+    private func netStatus(totalDelayDays: Int, recoveredDays: Int) -> NetDelayStatus {
+        let delayed = max(0, totalDelayDays - recoveredDays)
+        let ahead = max(0, recoveredDays - totalDelayDays)
+        return NetDelayStatus(delayedDays: delayed, aheadDays: ahead)
+    }
+
+    private func totalDelayDays(forGoalId goalId: UUID) -> Int {
+        let descriptor = FetchDescriptor<ImpactEvent>()
+        let events = (try? modelContext.fetch(descriptor)) ?? []
+        return events
+            .filter { $0.goalId == goalId }
+            .reduce(0) { $0 + $1.delayDays }
+    }
+
+    private func totalRecoveredDelayDays(forGoalId goalId: UUID, monthlySavingsTarget: Double) -> Int {
+        let descriptor = FetchDescriptor<DreamContribution>()
+        let contributions = (try? modelContext.fetch(descriptor)) ?? []
+        return contributions
+            .filter { $0.linkedGoal?.id == goalId }
+            .reduce(0) { total, contribution in
+                total + recoveredDelayDays(
+                    forAmount: contribution.amount,
+                    monthlySavingsTarget: monthlySavingsTarget
+                )
+            }
     }
 
     private func progress(for amount: Double, target: Double) -> Double {
@@ -153,6 +222,7 @@ actor DreamContributionRepository {
 
         let goalName = goal.name
         let goalEmoji = goal.emoji
+        let goalIllustrationAssetName = goal.category.illustrationAssetName
         let progress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0
         let savedAmount = goal.currentAmount
 
@@ -160,6 +230,7 @@ actor DreamContributionRepository {
             DelaydWidgetSync.refresh(
                 goalName: goalName,
                 goalEmoji: goalEmoji,
+                goalIllustrationAssetName: goalIllustrationAssetName,
                 progress: progress,
                 daysDelayed: delayedDays,
                 savedAmount: savedAmount
@@ -172,6 +243,7 @@ struct DreamContributionSnapshot: Identifiable, Equatable, Sendable {
     let id: UUID
     let amount: Double
     let location: DreamSavingsLocation
+    let note: String?
     let occurredAt: Date
     let goalId: UUID?
 
@@ -179,6 +251,7 @@ struct DreamContributionSnapshot: Identifiable, Equatable, Sendable {
         id = contribution.id
         amount = contribution.amount
         location = contribution.location
+        note = contribution.note
         occurredAt = contribution.occurredAt
         goalId = contribution.linkedGoal?.id
     }

@@ -17,6 +17,7 @@ struct CreateGoalSheet: View {
     @State private var monthlyTarget: Double = 10_000
     @State private var currencyCode: String = CurrencyFormatter.localeDefaultCurrencyCode
     @State private var isOffPaceConfirmationPresented = false
+    @State private var isDatePickerPresented = false
 
     private enum CreateGoalField { case name, amount }
 
@@ -58,6 +59,7 @@ struct CreateGoalSheet: View {
                 .padding(.horizontal, AppSpacing.lg)
                 .padding(.bottom, AppSpacing.xl)
             }
+            .scrollDismissesKeyboard(.interactively)
 
             PrimaryButton(editingGoal == nil ? "Create Goal" : "Save Changes") {
                 saveTapped()
@@ -74,12 +76,25 @@ struct CreateGoalSheet: View {
             monthlyTarget = settings.monthlySavingsTarget
             currencyCode = settings.defaultCurrency
         }
+        .onChange(of: selectedCategory) { oldValue, newValue in
+            guard editingGoal == nil else { return }
+            let trimmed = goalName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty || defaultGoalNames.contains(trimmed) || trimmed == oldValue.defaultGoalName {
+                goalName = newValue.defaultGoalName
+            }
+        }
+        .sheet(isPresented: $isDatePickerPresented) {
+            datePickerSheet
+                .presentationDetents([.height(520)])
+                .presentationDragIndicator(.visible)
+        }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") { focusedField = nil }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AppColors.purplePrimary)
+                Button("Done") {
+                    focusedField = nil
+                }
+                .font(.system(size: 15, weight: .semibold))
             }
         }
         .confirmationDialog(
@@ -93,6 +108,39 @@ struct CreateGoalSheet: View {
             }
         } message: {
             Text(offPaceConfirmationMessage)
+        }
+    }
+
+    private var datePickerSheet: some View {
+        NavigationStack {
+            VStack(spacing: AppSpacing.lg) {
+                DatePicker("Target date", selection: $deadline, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .tint(AppColors.purplePrimary)
+                    .padding(.horizontal, AppSpacing.md)
+
+                PrimaryButton("Done") {
+                    isDatePickerPresented = false
+                }
+                .padding(.horizontal, AppSpacing.lg)
+                .padding(.bottom, AppSpacing.lg)
+            }
+            .padding(.top, AppSpacing.sm)
+            .background(AppColors.background(for: colorScheme).ignoresSafeArea())
+            .navigationTitle("Target date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { isDatePickerPresented = false }) {
+                        Text("Done")
+                            .font(.system(size: 16, weight: .semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 
@@ -134,7 +182,7 @@ struct CreateGoalSheet: View {
 
             inputCard(title: "Target amount") {
                 HStack(alignment: .firstTextBaseline, spacing: AppSpacing.sm) {
-                    Text("₹")
+                    Text(CurrencyFormatter.symbol(for: currencyCode))
                         .font(.system(size: 32, weight: .bold, design: .monospaced))
                         .foregroundStyle(AppColors.textSecondary(for: colorScheme))
 
@@ -143,14 +191,54 @@ struct CreateGoalSheet: View {
                         .foregroundStyle(AppColors.textPrimary(for: colorScheme))
                         .keyboardType(.numberPad)
                         .focused($focusedField, equals: .amount)
+                        .onChange(of: targetAmount) { _, newValue in
+                            let filtered = newValue.filter { $0.isNumber }
+                            if filtered != newValue {
+                                targetAmount = filtered
+                            }
+                        }
+                }
+
+                if focusedField == .amount {
+                    Button("Done editing") {
+                        focusedField = nil
+                    }
+                    .font(AppTypography.captionMedium)
+                    .foregroundStyle(AppColors.purplePrimary)
+                    .padding(.horizontal, AppSpacing.md)
+                    .padding(.vertical, AppSpacing.xs)
+                    .background(AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1), in: Capsule())
+                    .buttonStyle(.plain)
                 }
             }
 
             inputCard(title: "Deadline") {
                 VStack(alignment: .leading, spacing: AppSpacing.md) {
-                    DatePicker("Target date", selection: $deadline, displayedComponents: .date)
-                        .disabled(noDeadline)
-                        .opacity(noDeadline ? 0.45 : 1)
+                    Button {
+                        focusedField = nil
+                        isDatePickerPresented = true
+                    } label: {
+                        HStack(spacing: AppSpacing.sm) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(AppColors.purplePrimary)
+
+                            Text(deadline.formatted(.dateTime.day().month(.wide).year()))
+                                .font(AppTypography.bodyMedium)
+                                .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                        }
+                        .padding(AppSpacing.md)
+                        .background(AppColors.background(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.md))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(noDeadline)
+                    .opacity(noDeadline ? 0.45 : 1)
 
                     Toggle("I'll figure it out later", isOn: $noDeadline)
                         .font(AppTypography.callout)
@@ -245,6 +333,28 @@ struct CreateGoalSheet: View {
             content()
         }
         .delaydCard()
+    }
+
+    private var defaultGoalNames: Set<String> {
+        Set(GoalCategory.pickerPresets.map(\.defaultGoalName))
+    }
+}
+
+private extension GoalCategory {
+    var defaultGoalName: String {
+        switch self {
+        case .travel: "Bali trip"
+        case .vacation: "Beach vacation"
+        case .tech: "New iPhone"
+        case .gaming: "Gaming setup"
+        case .home: "Home upgrade"
+        case .vehicle: "New car"
+        case .education: "Course fund"
+        case .wedding: "Wedding fund"
+        case .emergency: "Emergency fund"
+        case .savings: "Freedom fund"
+        case .custom: "My dream"
+        }
     }
 }
 

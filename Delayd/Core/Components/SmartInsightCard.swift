@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SmartInsightCard: View {
     let insightText: String
+    var spentAmountText: String? = nil
     var trailingTitle: String = "View"
     var action: (() -> Void)?
 
@@ -36,16 +37,30 @@ struct SmartInsightCard: View {
 
             Spacer(minLength: AppSpacing.sm)
 
-            HStack(spacing: AppSpacing.xs) {
-                Text(trailingTitle)
-                    .font(.system(size: 13, weight: .semibold))
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
+            VStack(alignment: .trailing, spacing: 6) {
+                if let spentAmountText {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text("Spent")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(AppColors.insightBannerText.opacity(0.65))
+                        Text(spentAmountText)
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundStyle(AppColors.negative)
+                            .lineLimit(1)
+                    }
+                }
+
+                HStack(spacing: AppSpacing.xs) {
+                    Text(trailingTitle)
+                        .font(.system(size: 13, weight: .semibold))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .foregroundStyle(AppColors.insightBannerText.opacity(0.82))
+                .padding(.horizontal, AppSpacing.sm)
+                .padding(.vertical, AppSpacing.xs)
+                .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: AppRadius.md))
             }
-            .foregroundStyle(AppColors.insightBannerText.opacity(0.82))
-            .padding(.horizontal, AppSpacing.sm)
-            .padding(.vertical, AppSpacing.xs)
-            .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: AppRadius.md))
         }
     }
 }

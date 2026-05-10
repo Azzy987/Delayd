@@ -5,9 +5,21 @@ import SwiftData
 @Observable
 @MainActor
 final class ProtectDreamViewModel {
+    enum ProtectSource: String, CaseIterable, Identifiable {
+        case salaryLeftover = "Salary leftover"
+        case sideHustle = "Side hustle"
+        case investment = "Investment"
+        case cashback = "Cashback"
+        case gift = "Gift"
+        case other = "Other"
+
+        var id: String { rawValue }
+    }
+
     var amountText: String
     var selectedGoal: GoalSnapshot
     var selectedLocation: DreamSavingsLocation
+    var selectedSource: ProtectSource?
     var protectedDate: Date
     var isSaving: Bool
     var goals: [GoalSnapshot]
@@ -20,6 +32,7 @@ final class ProtectDreamViewModel {
         amountText: String = "",
         selectedGoal: GoalSnapshot? = nil,
         selectedLocation: DreamSavingsLocation = .piggyBank,
+        selectedSource: ProtectSource? = nil,
         protectedDate: Date = .now,
         isSaving: Bool = false,
         goals: [GoalSnapshot]? = nil,
@@ -28,6 +41,7 @@ final class ProtectDreamViewModel {
         self.amountText = amountText
         self.selectedGoal = selectedGoal ?? .mockBali
         self.selectedLocation = selectedLocation
+        self.selectedSource = selectedSource
         self.protectedDate = protectedDate
         self.isSaving = isSaving
         self.goals = goals ?? [.mockBali, .mockGaming, .mockEmergency]
@@ -103,6 +117,7 @@ final class ProtectDreamViewModel {
         let impact = await repository.create(
             amount: amount,
             location: selectedLocation,
+            note: selectedSource?.rawValue,
             linkedGoalId: selectedGoal.id,
             occurredAt: protectedDate,
             monthlySavingsTarget: monthlyTarget,

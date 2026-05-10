@@ -155,7 +155,9 @@ private struct MoneyShotShowcase: View {
                         location: .piggyBank,
                         currencyCode: "INR",
                         previousTargetDate: Calendar.current.date(byAdding: .month, value: 8, to: .now),
-                        improvedTargetDate: Calendar.current.date(byAdding: .day, value: -15, to: Calendar.current.date(byAdding: .month, value: 8, to: .now) ?? .now)
+                        improvedTargetDate: Calendar.current.date(byAdding: .day, value: -15, to: Calendar.current.date(byAdding: .month, value: 8, to: .now) ?? .now),
+                        recoveredDelayDays: 15,
+                        netStatus: NetDelayStatus.make(totalDelayDays: 24, recoveredDays: 15)
                     ),
                     onDismiss: {}
                 )

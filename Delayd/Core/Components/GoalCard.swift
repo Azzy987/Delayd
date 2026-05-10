@@ -76,13 +76,15 @@ struct GoalCard: View {
 
     private var progressBar: some View {
         GeometryReader { proxy in
+            let safeProgress = LayoutGuard.unit(clampedProgress, name: "GoalCard.progress")
+            let safeWidth = LayoutGuard.dimension(proxy.size.width * safeProgress, name: "GoalCard.progressWidth")
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(category.backgroundColor)
 
                 Capsule()
                     .fill(category.accentColor)
-                    .frame(width: proxy.size.width * clampedProgress)
+                    .frame(width: safeWidth)
             }
         }
         .frame(height: 8)

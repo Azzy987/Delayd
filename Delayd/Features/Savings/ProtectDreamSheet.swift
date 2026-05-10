@@ -32,15 +32,16 @@ struct ProtectDreamSheet: View {
                 .padding(.bottom, AppSpacing.sm)
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: AppSpacing.md) {
+                VStack(spacing: AppSpacing.sm) {
                     linkedGoalCard
                     amountCard
                     locationCard
+                    sourceCard
                     dateCard
                 }
                 .padding(.horizontal, AppSpacing.lg)
-                .padding(.top, AppSpacing.md)
-                .padding(.bottom, AppSpacing.md)
+                .padding(.top, AppSpacing.sm)
+                .padding(.bottom, AppSpacing.sm)
             }
 
             VStack(spacing: 0) {
@@ -49,6 +50,12 @@ struct ProtectDreamSheet: View {
                 if isKeypadVisible {
                     NumericKeypad(
                         text: $viewModel.amountText,
+                        keyHeight: 42,
+                        keySpacing: 8,
+                        horizontalPadding: AppSpacing.lg,
+                        verticalPadding: AppSpacing.sm,
+                        digitFontSize: 22,
+                        showsBackground: false,
                         onKeyTap: { hapticService.playLightImpact() }
                     )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -60,7 +67,7 @@ struct ProtectDreamSheet: View {
                 .disabled(!viewModel.canSave)
                 .opacity(viewModel.canSave ? 1 : 0.48)
                 .padding(.horizontal, AppSpacing.lg)
-                .padding(.top, AppSpacing.sm)
+                .padding(.top, AppSpacing.xs)
                 .padding(.bottom, AppSpacing.md)
             }
             .background(
@@ -159,7 +166,7 @@ struct ProtectDreamSheet: View {
             .disabled(viewModel.isSaving || viewModel.goals.count <= 1)
             .opacity(viewModel.goals.count <= 1 ? 0.45 : 1)
         }
-        .delaydCard()
+        .protectCard(colorScheme: colorScheme)
     }
 
     private var amountCard: some View {
@@ -170,11 +177,11 @@ struct ProtectDreamSheet: View {
 
             HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
                 Text(CurrencyFormatter.symbol(for: viewModel.currencyCode))
-                    .font(.system(size: 44, weight: .bold, design: .default))
+                    .font(.system(size: 38, weight: .bold, design: .default))
                     .foregroundStyle(AppColors.textPrimary(for: colorScheme))
 
                 Text(viewModel.amountText.isEmpty ? "0" : viewModel.amountText)
-                    .font(.system(size: 44, weight: .bold, design: .default))
+                    .font(.system(size: 38, weight: .bold, design: .default))
                     .foregroundStyle(
                         viewModel.amountText.isEmpty
                             ? AppColors.textTertiary(for: colorScheme)
@@ -184,7 +191,7 @@ struct ProtectDreamSheet: View {
                     .lineLimit(1)
 
                 BlinkingCaret()
-                    .frame(width: 2, height: 36)
+                    .frame(width: 2, height: 30)
                     .foregroundStyle(AppColors.positive)
             }
 
@@ -195,7 +202,7 @@ struct ProtectDreamSheet: View {
                 .padding(.top, AppSpacing.xs)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .delaydCard()
+        .protectCard(colorScheme: colorScheme)
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(AppMotion.sheetPresentation) {
@@ -241,7 +248,43 @@ struct ProtectDreamSheet: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .delaydCard()
+        .protectCard(colorScheme: colorScheme)
+    }
+
+    private var sourceCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            Text("Source (optional)")
+                .font(AppTypography.captionMedium)
+                .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppSpacing.sm) {
+                    ForEach(ProtectDreamViewModel.ProtectSource.allCases) { source in
+                        let isSelected = viewModel.selectedSource == source
+                        Button {
+                            viewModel.selectedSource = isSelected ? nil : source
+                            hapticService.playLightImpact()
+                        } label: {
+                            Text(source.rawValue)
+                                .font(AppTypography.captionMedium)
+                                .foregroundStyle(isSelected ? .white : AppColors.textPrimary(for: colorScheme))
+                                .padding(.horizontal, AppSpacing.md)
+                                .padding(.vertical, AppSpacing.sm)
+                                .background(
+                                    isSelected
+                                        ? AnyShapeStyle(AppGradients.heroGradient)
+                                        : AnyShapeStyle(AppColors.softSurface(for: colorScheme)),
+                                    in: Capsule()
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .protectCard(colorScheme: colorScheme)
     }
 
     private var dateCard: some View {
@@ -266,7 +309,7 @@ struct ProtectDreamSheet: View {
             .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .delaydCard()
+        .protectCard(colorScheme: colorScheme)
     }
 
     private var keypadHeader: some View {
@@ -295,7 +338,7 @@ struct ProtectDreamSheet: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, AppSpacing.lg)
-        .padding(.top, AppSpacing.md)
+        .padding(.top, AppSpacing.sm)
     }
 
     private var datePickerSheet: some View {
@@ -344,6 +387,25 @@ struct ProtectDreamSheet: View {
     }
 }
 
+private extension View {
+    func protectCard(colorScheme: ColorScheme) -> some View {
+        self
+            .padding(.horizontal, AppSpacing.md)
+            .padding(.vertical, 12)
+            .background(AppColors.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                    .stroke(AppColors.border(for: colorScheme).opacity(colorScheme == .dark ? 0.7 : 0.85), lineWidth: 1)
+            }
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.16 : 0.045),
+                radius: 10,
+                x: 0,
+                y: 4
+            )
+    }
+}
+
 private struct ProtectDreamSheetPreviewHost: View {
     @State private var isPresented = true
 
@@ -371,4 +433,3 @@ private struct ProtectDreamSheetPreviewHost: View {
         .modelContainer(PreviewContainer.shared)
         .preferredColorScheme(.dark)
 }
-

@@ -7,7 +7,11 @@ struct HomeView: View {
     @State private var isProfilePresented = false
     @State private var isProPresented = false
     @State private var isGoalDetailsPresented = false
+    @State private var isGoalSwitcherPresented = false
+    @State private var isCreateGoalPresented = false
     @State private var isMonthPickerPresented = false
+    @State private var isDelayedDetailsPresented = false
+    @State private var isInsightDetailsPresented = false
     @State private var selectedImpact: HistoryImpact?
     @State private var selectedMonth = Date()
     @State private var isProUnlocked = ProEntitlementService.isUnlocked
@@ -143,6 +147,71 @@ struct HomeView: View {
             )
             .delaydPageSheet(detents: [.large])
         }
+        .sheet(isPresented: $isGoalSwitcherPresented) {
+            GoalSwitcherSheet(
+                title: "Switch Goal",
+                subtitle: "Choose which dream appears on Home.",
+                selectedGoalId: viewModel.activeGoal?.id,
+                onSelect: { goalId in
+                    isGoalSwitcherPresented = false
+                    Task {
+                        let settingsRepository = SettingsRepository(modelContainer: modelContext.container)
+                        await settingsRepository.update { settings in
+                            settings.defaultGoalId = goalId
+                        }
+                        await viewModel.load(modelContainer: modelContext.container, month: selectedMonth)
+                    }
+                },
+                onCreateNew: {
+                    isGoalSwitcherPresented = false
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(260))
+                        let goalRepository = GoalRepository(modelContainer: modelContext.container)
+                        let activeGoals = await goalRepository.fetchActive()
+                        guard ProEntitlementService.isUnlocked || activeGoals.isEmpty else {
+                            isProPresented = true
+                            return
+                        }
+                        isCreateGoalPresented = true
+                    }
+                }
+            )
+            .delaydPageSheet(detents: [.height(520), .large])
+        }
+        .sheet(isPresented: $isCreateGoalPresented) {
+            CreateGoalSheet(
+                onClose: {
+                    isCreateGoalPresented = false
+                },
+                onCreate: { goal in
+                    Task {
+                        let goalRepository = GoalRepository(modelContainer: modelContext.container)
+                        let activeGoals = await goalRepository.fetchActive()
+                        guard ProEntitlementService.isUnlocked || activeGoals.isEmpty else {
+                            isCreateGoalPresented = false
+                            isProPresented = true
+                            return
+                        }
+                        let created = await goalRepository.create(
+                            name: goal.name,
+                            emoji: goal.category.emoji,
+                            category: goal.category,
+                            targetAmount: goal.targetAmount,
+                            deadline: goal.daysRemaining > 0
+                                ? Calendar.current.date(byAdding: .day, value: goal.daysRemaining, to: .now)
+                                : nil
+                        )
+                        let settingsRepository = SettingsRepository(modelContainer: modelContext.container)
+                        await settingsRepository.update { settings in
+                            settings.defaultGoalId = created.id
+                        }
+                        await viewModel.load(modelContainer: modelContext.container, month: selectedMonth)
+                        isCreateGoalPresented = false
+                    }
+                }
+            )
+            .delaydPageSheet(detents: [.large])
+        }
         .fullScreenCover(isPresented: $isProPresented) {
             DelaydProView(
                 onClose: { isProPresented = false },
@@ -186,10 +255,34 @@ struct HomeView: View {
             )
             .delaydPageSheet(detents: [.height(640), .large])
         }
+        .sheet(isPresented: $isDelayedDetailsPresented) {
+            DelayedThisMonthDetailsSheet(
+                currencyCode: viewModel.currencyCode,
+                delayedDays: viewModel.delayedThisMonth,
+                spentAmount: viewModel.spentThisMonth,
+                entries: viewModel.delayedEntriesThisMonth,
+                onClose: { isDelayedDetailsPresented = false }
+            )
+            .delaydPageSheet(detents: [.large])
+        }
+        .sheet(isPresented: $isInsightDetailsPresented) {
+            InsightDetailsSheet(
+                insightText: viewModel.insight,
+                currencyCode: viewModel.currencyCode,
+                savedAmount: viewModel.savedThisMonth,
+                spentAmount: viewModel.spentThisMonth,
+                delayedDays: viewModel.delayedThisMonth,
+                savedEntries: viewModel.savedEntriesThisMonth,
+                delayedEntries: viewModel.delayedEntriesThisMonth,
+                onClose: { isInsightDetailsPresented = false }
+            )
+            .delaydPageSheet(detents: [.large])
+        }
     }
 
     private func homeHeroBackgroundHeight(for geo: GeometryProxy) -> CGFloat {
-        max(geo.safeAreaInsets.top + 330, geo.size.height * 0.36)
+        let baseHeight: CGFloat = viewModel.goalPaceWarning == nil ? 330 : 410
+        return max(geo.safeAreaInsets.top + baseHeight, geo.size.height * 0.36)
     }
 
     // MARK: - Top bar
@@ -273,21 +366,44 @@ struct HomeView: View {
 
     private func heroContent(goal: PlanGoal) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                isGoalDetailsPresented = true
-            } label: {
-                HStack(spacing: 8) {
-                    GoalCategoryIcon(category: goal.category, size: 40, style: .hero)
-                    Text(goal.displayName)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.7))
+            HStack(spacing: 8) {
+                Button {
+                    isGoalDetailsPresented = true
+                } label: {
+                    HStack(spacing: 10) {
+                        GoalCategoryIcon(category: goal.category, size: 52, style: .hero)
+                        Text(goal.displayName)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open \(goal.displayName) details")
+
+                Spacer(minLength: 0)
+
+                Button {
+                    isGoalSwitcherPresented = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Switch")
+                            .font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(.white.opacity(0.18), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Switch active goal")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open \(goal.displayName) details")
             .padding(.bottom, 18)
 
             Text(goal.formattedCurrentAmount)
@@ -303,11 +419,16 @@ struct HomeView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.2))
-                    Capsule()
-                        .fill(.white)
-                        .frame(width: geo.size.width * min(max(CGFloat(goal.progress), 0), 1))
-                        .animation(AppMotion.backwardProgress, value: goal.progress)
-                }
+                Capsule()
+                    .fill(.white)
+                    .frame(
+                        width: LayoutGuard.dimension(
+                            geo.size.width * LayoutGuard.unit(CGFloat(goal.progress), name: "HomeView.heroProgress"),
+                            name: "HomeView.heroProgressWidth"
+                        )
+                    )
+                    .animation(AppMotion.backwardProgress, value: goal.progress)
+            }
             }
             .frame(height: 6)
             .padding(.bottom, 14)
@@ -323,6 +444,28 @@ struct HomeView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 10))
+            }
+
+            if let warning = viewModel.goalPaceWarning {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.warning)
+                        .padding(.top, 1)
+
+                    Text("Forecast risk: \(warning) You can add side income, one-off top-ups, or trim non-essential spends to close the gap.")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.96))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(AppColors.warning.opacity(0.22), in: RoundedRectangle(cornerRadius: 14))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(AppColors.warning.opacity(0.55), lineWidth: 1)
+                }
+                .padding(.top, 14)
             }
         }
     }
@@ -355,8 +498,9 @@ struct HomeView: View {
 
                 SmartInsightCard(
                     insightText: viewModel.insight,
+                    spentAmountText: CurrencyFormatter.format(viewModel.spentThisMonth, currencyCode: viewModel.currencyCode),
                     trailingTitle: "View",
-                    action: onOpenHistory
+                    action: { isInsightDetailsPresented = true }
                 )
                     .padding(.horizontal, ph)
                     .padding(.bottom, AppSpacing.md)
@@ -433,7 +577,7 @@ struct HomeView: View {
     }
 
     private var delayedCardButton: some View {
-        Button(action: onOpenHistory) {
+        Button(action: { isDelayedDetailsPresented = true }) {
             delayedCard
         }
         .buttonStyle(.plain)
@@ -458,6 +602,8 @@ struct HomeView: View {
                 Text(viewModel.savedThisMonthText)
                     .font(.system(size: 22, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppColors.positive)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
                 if let delta = viewModel.savedDeltaText {
                     Text(delta)
                         .font(.system(size: 11, weight: .semibold))
@@ -495,6 +641,8 @@ struct HomeView: View {
             Text(viewModel.delayedThisMonthText)
                 .font(.system(size: 22, weight: .bold, design: .monospaced))
                 .foregroundStyle(AppColors.negative)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 18)
@@ -519,7 +667,9 @@ struct HomeView: View {
                     .foregroundStyle(AppColors.textSecondary(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)
             }
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(AppSpacing.md)
         .themedCard(colorScheme: colorScheme)
     }
@@ -584,7 +734,7 @@ struct HomeView: View {
         if label.contains("coffee") || label.contains("cup") {
             return (Color(red: 0.72, green: 0.36, blue: 0.10), Color(red: 1.0, green: 0.92, blue: 0.84))
         }
-        if label.contains("dinner") || label.contains("food") || label.contains("fork") {
+        if label.contains("dinner") || label.contains("lunch") || label.contains("food") || label.contains("restaurant") || label.contains("dosa") || label.contains("idli") || label.contains("biryani") || label.contains("pizza") || label.contains("burger") || label.contains("fork") {
             return (AppColors.travelAccent, AppColors.travelBackground)
         }
         if label.contains("shopping") || label.contains("bag") {

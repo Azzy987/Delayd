@@ -25,7 +25,8 @@ struct OnboardingView: View {
 
             KavsoftCarousel(
                 currentIndex: $viewModel.currentStep,
-                data: Array(0..<OnboardingViewModel.totalSteps)
+                data: Array(0..<OnboardingViewModel.totalSteps),
+                isDragEnabled: isCarouselDragEnabled
             ) { step, _ in
                 screen(for: step)
             }
@@ -84,16 +85,6 @@ struct OnboardingView: View {
         // Dismiss keyboard when switching screens
         .onChange(of: viewModel.currentStep) { _, _ in
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }
-                .font(AppTypography.bodyMedium)
-                .foregroundStyle(AppColors.purplePrimary)
-            }
         }
     }
 
@@ -180,6 +171,10 @@ struct OnboardingView: View {
         [3, 4, 5, 6, 7].contains(viewModel.currentStep)
     }
 
+    private var isCarouselDragEnabled: Bool {
+        ![3, 4, 5, 7].contains(viewModel.currentStep)
+    }
+
     // Back button styling — theme-aware
     private var backButtonForeground: Color {
         isGradientStep ? .white : AppColors.textPrimary(for: colorScheme)
@@ -225,7 +220,7 @@ struct OnboardingView: View {
             return
         }
 
-        guard trimmedName.isEmpty else { return }
+        guard trimmedName.isEmpty || defaultGoalNames.contains(trimmedName) else { return }
         viewModel.goalName = defaultGoalName(for: viewModel.selectedDream)
     }
 

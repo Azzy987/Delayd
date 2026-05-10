@@ -231,7 +231,7 @@ struct GoalCategoryIllustrationPickerRequired: View {
 
 extension GoalCategory {
     /// The asset catalog name for this category's circular illustration.
-    var illustrationAssetName: String {
+    nonisolated var illustrationAssetName: String {
         switch self {
         case .travel: "CategoryTravel"
         case .vacation: "CategoryVacation"
