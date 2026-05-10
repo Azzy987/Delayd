@@ -135,6 +135,7 @@ enum ProEntitlementService {
     private static func updateEntitlementCache(_ customerInfo: CustomerInfo) -> Bool {
         let isActive = isProActive(customerInfo)
         UserDefaults.standard.set(isActive, forKey: cachedEntitlementKey)
+        DelaydWidgetSync.syncProState(isUnlocked: isActive)
         if let productIdentifier = activeProductIdentifier(from: customerInfo) {
             UserDefaults.standard.set(productIdentifier, forKey: cachedProductIdentifierKey)
         } else if !isActive {

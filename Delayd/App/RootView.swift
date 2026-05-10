@@ -12,6 +12,7 @@ struct RootView: View {
     @State private var isRevealPresented = false
     @State private var isBoostRevealPresented = false
     @State private var isPostRevealProPromptPresented = false
+    @State private var isGlobalProPromptPresented = false
     @State private var isOnboardingCompleted: Bool
     @State private var shouldPresentRevealAfterQuickLog = false
     @State private var shouldPresentBoostRevealAfterProtectDream = false
@@ -136,6 +137,8 @@ struct RootView: View {
                     isQuickLogPresented = true
                 case "history":
                     selectedTab = .history
+                case "paywall":
+                    isGlobalProPromptPresented = true
                 default:
                     break
                 }
@@ -323,6 +326,23 @@ struct RootView: View {
                 }
             )
         }
+        .fullScreenCover(isPresented: $isGlobalProPromptPresented) {
+            DelaydProView(
+                entryPoint: .settings,
+                onClose: {
+                    isGlobalProPromptPresented = false
+                },
+                onSubscribe: { _ in
+                    isGlobalProPromptPresented = false
+                },
+                onRestore: {
+                    isGlobalProPromptPresented = false
+                },
+                onManageSubscription: {
+                    isGlobalProPromptPresented = false
+                }
+            )
+        }
     }
 
     private var quickActionBackdrop: some View {
@@ -471,7 +491,7 @@ private enum DelaydTab: CaseIterable, Hashable, Identifiable {
     var title: String {
         switch self {
         case .home: "Home"
-        case .plan: "Plan"
+        case .plan: "Goals"
         case .history: "History"
         case .settings: "Settings"
         }

@@ -79,7 +79,7 @@ struct QuickCaptureConfirmationSnippet: View {
         if delayDays <= 0 {
             return "On track"
         }
-        return "+\(delayDays) \(delayDays == 1 ? "day" : "days")"
+        return "+\(DelayTextFormatter.daysText(delayDays))"
     }
 
     @ViewBuilder
@@ -162,7 +162,7 @@ struct QuickCaptureResultSnippet: View {
             return toneMessage
         }
         if delayDays > 0 {
-            return "\(dreamName) pushed back by \(delayDays) \(delayDays == 1 ? "day" : "days")."
+            return "\(dreamName) pushed back by \(DelayTextFormatter.daysText(delayDays))."
         }
         return "\(dreamName) is still on track."
     }

@@ -80,7 +80,7 @@ final class HomeViewModel {
     }
 
     var delayedThisMonthText: String {
-        "\(delayedThisMonth) days"
+        DelayTextFormatter.daysText(delayedThisMonth)
     }
 
     var spentThisMonthText: String {
@@ -138,7 +138,7 @@ final class HomeViewModel {
                 expenseIconSystemImage: Self.expenseIcon(for: expense),
                 merchantName: expense.displayName,
                 goalName: goalName,
-                delayText: "\(delayDays) \(delayDays == 1 ? "day" : "days")",
+                delayText: DelayTextFormatter.daysText(delayDays),
                 amountText: CurrencyFormatter.formatNegative(expense.amount, currencyCode: loadedCurrencyCode),
                 occurredAt: expense.occurredAt,
                 amount: expense.amount,
@@ -228,7 +228,7 @@ final class HomeViewModel {
                     expenseIconSystemImage: Self.expenseIcon(for: expense),
                     merchantName: expense.displayName,
                     goalName: goalName,
-                    delayText: "\(delayDays) \(delayDays == 1 ? "day" : "days")",
+                    delayText: DelayTextFormatter.daysText(delayDays),
                     amountText: CurrencyFormatter.formatNegative(expense.amount, currencyCode: loadedCurrencyCode),
                     occurredAt: expense.occurredAt,
                     amount: expense.amount,
@@ -441,7 +441,7 @@ final class HomeViewModel {
         let totalSpend = weeklyExpenses.reduce(0) { $0 + $1.amount }
         let totalFormatted = CurrencyFormatter.format(totalSpend, currencyCode: currencyCode)
 
-        return "This week: \(totalFormatted) logged, \(delayedDays) delay days, biggest slip was \(biggestLabel)."
+        return "This week: \(totalFormatted) logged, \(DelayTextFormatter.daysText(delayedDays)) delay, biggest slip was \(biggestLabel)."
     }
 
     private static func previousMonthInterval(now: Date = .now) -> DateInterval? {

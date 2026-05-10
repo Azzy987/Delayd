@@ -19,6 +19,7 @@ struct WeeklyPulseSection: View {
     /// ISO 4217 currency code — used in the "protected" headline copy.
     var currencyCode: String
     @State private var selectedPoint: CGPoint?
+    @State private var selectedIndex: Int?
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -157,7 +158,9 @@ struct WeeklyPulseSection: View {
                         .shadow(color: AppColors.purplePrimary.opacity(0.45), radius: 4, x: 0, y: 0)
                 }
 
-                if let selectedPoint {
+                if let selectedPoint, let selectedIndex, selectedIndex < values.count {
+                    let selectedValue = Int(values[selectedIndex])
+
                     Path { path in
                         path.move(to: CGPoint(x: selectedPoint.x, y: inset))
                         path.addLine(to: CGPoint(x: selectedPoint.x, y: safeHeight - inset))
@@ -172,6 +175,17 @@ struct WeeklyPulseSection: View {
                         .frame(width: 10, height: 10)
                         .position(selectedPoint)
                         .shadow(color: AppColors.purplePrimary.opacity(0.45), radius: 4, x: 0, y: 0)
+
+                    Text("\(selectedValue)d")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(AppColors.purplePrimary, in: Capsule())
+                        .position(
+                            x: min(max(selectedPoint.x, 24), max(safeWidth - 24, 24)),
+                            y: max(selectedPoint.y - 18, 10)
+                        )
                 }
             }
             .contentShape(Rectangle())
@@ -183,10 +197,12 @@ struct WeeklyPulseSection: View {
                         let rawIndex = spacing > 0 ? Int(round(safeX / spacing)) : 0
                         let index = min(max(rawIndex, 0), points.count - 1)
                         selectedPoint = points[index]
+                        selectedIndex = index
                     }
                     .onEnded { _ in
                         withAnimation(.easeOut(duration: 0.18)) {
                             selectedPoint = nil
+                            selectedIndex = nil
                         }
                     }
             )

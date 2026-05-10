@@ -58,6 +58,9 @@ struct DelaydWidgetProvider: TimelineProvider {
 
     /// Shared App Group key. The main app writes this via `DelaydWidgetSync`.
     private func readSharedEntry() -> DelaydWidgetEntry? {
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.delayd.shared") != nil else {
+            return nil
+        }
         guard
             let defaults = UserDefaults(suiteName: "group.com.delayd.shared"),
             let data = defaults.data(forKey: "widget.entry"),
@@ -104,14 +107,51 @@ struct DelaydWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            SmallWidgetView(entry: entry)
-        case .systemMedium:
-            MediumWidgetView(entry: entry)
-        default:
-            SmallWidgetView(entry: entry)
+        if let lock = WidgetAccessGate.currentLockState() {
+            switch family {
+            case .systemSmall:
+                SmallLockedWidgetView(lock: lock)
+            case .systemMedium:
+                MediumLockedWidgetView(lock: lock)
+            default:
+                SmallLockedWidgetView(lock: lock)
+            }
+        } else {
+            switch family {
+            case .systemSmall:
+                SmallWidgetView(entry: entry)
+            case .systemMedium:
+                MediumWidgetView(entry: entry)
+            default:
+                SmallWidgetView(entry: entry)
+            }
         }
+    }
+}
+
+private enum WidgetAccessGate {
+    private static let appGroupID = "group.com.delayd.shared"
+    private static let trialStartDateKey = "widget.trial.startDate"
+    private static let proUnlockedKey = "widget.pro.unlocked"
+    private static let trialDurationDays = 7
+
+    struct LockState {
+        let trialDaysLeft: Int
+    }
+
+    static func currentLockState(now: Date = .now) -> LockState? {
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil else {
+            return nil
+        }
+        guard let defaults = UserDefaults(suiteName: appGroupID) else { return nil }
+        if defaults.bool(forKey: proUnlockedKey) {
+            return nil
+        }
+
+        let startDate = (defaults.object(forKey: trialStartDateKey) as? Date) ?? now
+        let elapsedDays = max(0, Calendar.current.dateComponents([.day], from: startDate, to: now).day ?? 0)
+        let daysLeft = max(0, trialDurationDays - elapsedDays)
+        return daysLeft > 0 ? nil : LockState(trialDaysLeft: daysLeft)
     }
 }
 
@@ -158,7 +198,7 @@ private struct SmallWidgetView: View {
             }
         }
         .padding(12)
-        .widgetURL(URL(string: "delayd://home"))
+        .widgetURL(URL(string: "delayd://paywall"))
         .containerBackground(for: .widget) {
             WidgetBackground()
         }
@@ -231,7 +271,7 @@ private struct MediumWidgetView: View {
             .frame(width: 112, height: 120)
         }
         .padding(14)
-        .widgetURL(URL(string: "delayd://home"))
+        .widgetURL(URL(string: "delayd://paywall"))
         .containerBackground(for: .widget) {
             WidgetBackground()
         }
@@ -325,6 +365,61 @@ private struct WidgetProgressBar: View {
             }
         }
         .frame(height: 6)
+    }
+}
+
+private struct SmallLockedWidgetView: View {
+    let lock: WidgetAccessGate.LockState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Delayd Pro")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+            Text("Widget trial ended")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.86))
+            Spacer(minLength: 0)
+            Text("Upgrade to keep this widget active")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white.opacity(0.8))
+                .lineLimit(2)
+        }
+        .padding(12)
+        .widgetURL(URL(string: "delayd://home"))
+        .containerBackground(for: .widget) {
+            WidgetBackground()
+        }
+    }
+}
+
+private struct MediumLockedWidgetView: View {
+    let lock: WidgetAccessGate.LockState
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Delayd Pro")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("Widget trial ended")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.86))
+                Text("Upgrade to keep this widget active")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(.white.opacity(0.92))
+        }
+        .padding(14)
+        .widgetURL(URL(string: "delayd://home"))
+        .containerBackground(for: .widget) {
+            WidgetBackground()
+        }
     }
 }
 

@@ -368,7 +368,7 @@ struct QuickCaptureExpenseIntent: AppIntent {
         if delayDays == 0 {
             return IntentDialog("Log \(amountText)? \(goalName) stays on track.")
         }
-        return IntentDialog("Log \(amountText)? This pushes \(goalName) back by \(delayDays) \(delayDays == 1 ? "day" : "days").")
+        return IntentDialog("Log \(amountText)? This pushes \(goalName) back by \(DelayTextFormatter.daysText(delayDays)).")
     }
 
     private static func makeModelContainer() throws -> ModelContainer {

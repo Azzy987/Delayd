@@ -3,6 +3,7 @@ import SwiftData
 import UIKit
 import StoreKit
 import RevenueCatUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @State private var viewModel: SettingsViewModel
@@ -79,6 +80,7 @@ struct SettingsView: View {
         .sheet(isPresented: $isThemePickerPresented) {
             ThemePickerSheet(
                 selectedTheme: viewModel.appTheme,
+                onClose: { isThemePickerPresented = false },
                 onSelect: { option in
                     viewModel.updateTheme(option)
                     isThemePickerPresented = false
@@ -89,6 +91,7 @@ struct SettingsView: View {
         .sheet(isPresented: $isTonePickerPresented) {
             TonePickerSheet(
                 selectedTone: viewModel.tone,
+                onClose: { isTonePickerPresented = false },
                 onSelect: { option in
                     viewModel.updateTone(option)
                     isTonePickerPresented = false
@@ -183,7 +186,7 @@ struct SettingsView: View {
                     Text(isProUnlocked ? "Delayd Pro Active" : "Delayd Pro")
                         .font(AppTypography.bodyMedium)
 
-                    Text(isProUnlocked ? "Premium features unlocked" : "Unlock advanced insights")
+                    Text(proBannerSubtitle)
                         .font(AppTypography.callout)
                         .opacity(0.78)
                 }
@@ -204,6 +207,18 @@ struct SettingsView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private var proBannerSubtitle: String {
+        if isProUnlocked {
+            return "Premium features unlocked"
+        }
+
+        let daysLeft = DelaydWidgetSync.widgetTrialDaysLeft()
+        if daysLeft > 0 {
+            return "Widget trial: \(daysLeft)d left"
+        }
+        return "Widget trial ended • Unlock advanced insights"
     }
 
     private var preferencesRows: some View {
@@ -406,6 +421,13 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             divider
             Button {
+                activeSettingsSheet = .featureRequest
+            } label: {
+                row(systemImage: "lightbulb.fill", title: "Request a Feature", value: nil)
+            }
+            .buttonStyle(.plain)
+            divider
+            Button {
                 requestAppStoreReview()
             } label: {
                 row(systemImage: "heart.fill", title: "Rate App", value: nil)
@@ -509,6 +531,8 @@ struct SettingsView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppColors.textTertiary(for: colorScheme))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .padding(.vertical, AppSpacing.sm)
     }
 
@@ -559,6 +583,8 @@ struct SettingsView: View {
                     .disabled(isDisabled)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .padding(.vertical, AppSpacing.sm)
         .opacity((isDisabled && !isProLocked) ? 0.58 : 1)
     }
@@ -617,6 +643,7 @@ struct SettingsView: View {
         case .currency:
             CurrencyPickerSheet(
                 selectedCurrency: viewModel.selectedCurrency,
+                onClose: { activeSettingsSheet = nil },
                 onSelect: { currency in
                     viewModel.updateCurrency(currency)
                     activeSettingsSheet = nil
@@ -627,6 +654,7 @@ struct SettingsView: View {
             MonthlySavingsTargetSheet(
                 currentTarget: viewModel.monthlySavingsTarget,
                 currencyCode: viewModel.selectedCurrency,
+                onClose: { activeSettingsSheet = nil },
                 onSave: { amount in
                     viewModel.updateMonthlySavingsTarget(amount)
                     activeSettingsSheet = nil
@@ -670,6 +698,7 @@ struct SettingsView: View {
                 subtitle: "Sync is planned for V1.1, while V1 stays local-first.",
                 detail: "This keeps launch simpler: no account creation, no forced sign-in, and no cloud dependency before the core habit loop is proven.",
                 primaryTitle: "Got it",
+                onClose: { activeSettingsSheet = nil },
                 onPrimary: { activeSettingsSheet = nil }
             )
             .delaydPageSheet(detents: [.height(410), .medium])
@@ -680,6 +709,7 @@ struct SettingsView: View {
                 subtitle: "Local-first V1 build.",
                 detail: "Current scope: goals, manual expense logging, delay reveals, smart insights, light/dark mode, and local SwiftData storage.",
                 primaryTitle: "Done",
+                onClose: { activeSettingsSheet = nil },
                 onPrimary: { activeSettingsSheet = nil }
             )
             .delaydPageSheet(detents: [.height(390), .medium])
@@ -720,6 +750,7 @@ struct SettingsView: View {
                 dailyTime: viewModel.dailyReminderTime,
                 smartTime: viewModel.smartReminderTime,
                 weeklyTime: viewModel.weeklyRecapTime,
+                onClose: { activeSettingsSheet = nil },
                 onSave: { daily, smart, weekly in
                     viewModel.updateDailyReminderTime(daily)
                     viewModel.updateSmartReminderTime(smart)
@@ -728,6 +759,11 @@ struct SettingsView: View {
                 }
             )
             .delaydPageSheet(detents: [.height(430), .large])
+        case .featureRequest:
+            FeatureRequestSheet(
+                onClose: { activeSettingsSheet = nil }
+            )
+            .delaydPageSheet(detents: [.large])
         }
     }
 }
@@ -743,14 +779,168 @@ private enum SettingsUtilitySheet: String, Identifiable {
     case privacy
     case terms
     case notificationTimes
+    case featureRequest
 
     var id: String { rawValue }
+}
+
+private struct FeatureRequestSheet: View {
+    @State private var titleText = ""
+    @State private var descriptionText = ""
+    let onClose: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                SettingsSheetHeader(
+                    systemImage: "lightbulb.fill",
+                    title: "Request a Feature",
+                    subtitle: "Share what should make Delayd better for your daily habit.",
+                    onClose: onClose
+                )
+
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    Text("Title")
+                        .font(AppTypography.captionMedium)
+                        .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                    HStack(spacing: AppSpacing.sm) {
+                        TextField("Feature title", text: $titleText)
+                            .textInputAutocapitalization(.sentences)
+
+                        if !titleText.isEmpty {
+                            Button {
+                                titleText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Clear title")
+                        }
+                    }
+                    .padding(.horizontal, AppSpacing.md)
+                    .padding(.vertical, 12)
+                    .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.lg))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AppRadius.lg)
+                            .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    Text("Description")
+                        .font(AppTypography.captionMedium)
+                        .foregroundStyle(AppColors.textSecondary(for: colorScheme))
+                    ZStack(alignment: .topLeading) {
+                        TextEditor(text: $descriptionText)
+                            .font(AppTypography.body)
+                            .textInputAutocapitalization(.sentences)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 140, maxHeight: 220)
+
+                        if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text("Describe the problem and your suggested solution")
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                                .padding(.top, 8)
+                                .padding(.leading, 5)
+                                .allowsHitTesting(false)
+                        }
+
+                        if !descriptionText.isEmpty {
+                            VStack {
+                                HStack {
+                                    Spacer()
+                                    Button {
+                                        descriptionText = ""
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundStyle(AppColors.textTertiary(for: colorScheme))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("Clear description")
+                                }
+                                Spacer()
+                            }
+                            .padding(.top, 4)
+                            .padding(.trailing, 2)
+                        }
+                    }
+                    .padding(.horizontal, AppSpacing.md)
+                    .padding(.vertical, 10)
+                    .background(AppColors.card(for: colorScheme), in: RoundedRectangle(cornerRadius: AppRadius.lg))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AppRadius.lg)
+                            .stroke(AppColors.border(for: colorScheme), lineWidth: 1)
+                    }
+                }
+
+                Button {
+                    sendFeatureEmail()
+                } label: {
+                    HStack(spacing: AppSpacing.xs) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Send Request")
+                            .font(AppTypography.bodyMedium)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(AppColors.purplePrimary, in: RoundedRectangle(cornerRadius: AppRadius.lg))
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSend)
+                .opacity(canSend ? 1 : 0.45)
+
+                SecondaryButton("Close", action: onClose)
+            }
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.top, AppSpacing.xl)
+            .padding(.bottom, AppSpacing.xl)
+        }
+        .background(AppColors.background(for: colorScheme).ignoresSafeArea())
+    }
+
+    private var canSend: Bool {
+        !titleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func sendFeatureEmail() {
+        let trimmedTitle = titleText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDescription = descriptionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty, !trimmedDescription.isEmpty else { return }
+
+        let subject = "Delayd Feature Request: \(trimmedTitle)"
+        let body = """
+        Feature title:
+        \(trimmedTitle)
+
+        Description:
+        \(trimmedDescription)
+        """
+
+        guard
+            let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+            let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+            let url = URL(string: "mailto:droidates@gmail.com?subject=\(encodedSubject)&body=\(encodedBody)")
+        else {
+            return
+        }
+        UIApplication.shared.open(url)
+    }
 }
 
 private struct NotificationTimesSheet: View {
     @State private var dailyDate: Date
     @State private var smartDate: Date
     @State private var weeklyDate: Date
+    let onClose: () -> Void
     let onSave: (DateComponents, DateComponents, DateComponents) -> Void
     @Environment(\.colorScheme) private var colorScheme
 
@@ -758,11 +948,13 @@ private struct NotificationTimesSheet: View {
         dailyTime: DateComponents,
         smartTime: DateComponents,
         weeklyTime: DateComponents,
+        onClose: @escaping () -> Void,
         onSave: @escaping (DateComponents, DateComponents, DateComponents) -> Void
     ) {
         _dailyDate = State(initialValue: Self.date(from: dailyTime, fallbackHour: 20, fallbackMinute: 0))
         _smartDate = State(initialValue: Self.date(from: smartTime, fallbackHour: 17, fallbackMinute: 30))
         _weeklyDate = State(initialValue: Self.date(from: weeklyTime, fallbackHour: 18, fallbackMinute: 0))
+        self.onClose = onClose
         self.onSave = onSave
     }
 
@@ -771,7 +963,8 @@ private struct NotificationTimesSheet: View {
             SettingsSheetHeader(
                 systemImage: "clock.arrow.circlepath",
                 title: "Notification Times",
-                subtitle: "Pro: choose when reminders should arrive."
+                subtitle: "Pro: choose when reminders should arrive.",
+                onClose: onClose
             )
             .padding(.horizontal, AppSpacing.lg)
             .padding(.top, AppSpacing.lg)
@@ -840,6 +1033,7 @@ private struct NotificationTimesSheet: View {
 
 private struct CurrencyPickerSheet: View {
     let selectedCurrency: String
+    let onClose: () -> Void
     let onSelect: (String) -> Void
 
     @State private var searchText = ""
@@ -860,7 +1054,8 @@ private struct CurrencyPickerSheet: View {
                     SettingsSheetHeader(
                         systemImage: "dollarsign.circle.fill",
                         title: "Currency",
-                        subtitle: "Delayd can default to your iPhone region, then you can override it here."
+                        subtitle: "Delayd can default to your iPhone region, then you can override it here.",
+                        onClose: onClose
                     )
 
                     if let detected = CurrencyFormatter.allCurrencyOptions.first(where: { $0.code == detectedCurrency }) {
@@ -971,6 +1166,7 @@ private struct CurrencyPickerSheet: View {
 
 private struct MonthlySavingsTargetSheet: View {
     let currentTarget: Double
+    let onClose: () -> Void
     let onSave: (Double) -> Void
     var currencyCode: String = CurrencyFormatter.localeDefaultCurrencyCode
 
@@ -980,9 +1176,15 @@ private struct MonthlySavingsTargetSheet: View {
 
     private let presets = [5_000, 10_000, 25_000, 50_000]
 
-    init(currentTarget: Double, currencyCode: String = CurrencyFormatter.localeDefaultCurrencyCode, onSave: @escaping (Double) -> Void) {
+    init(
+        currentTarget: Double,
+        currencyCode: String = CurrencyFormatter.localeDefaultCurrencyCode,
+        onClose: @escaping () -> Void,
+        onSave: @escaping (Double) -> Void
+    ) {
         self.currentTarget = currentTarget
         self.currencyCode = currencyCode
+        self.onClose = onClose
         self.onSave = onSave
         _targetText = State(initialValue: Self.formatPlain(currentTarget))
     }
@@ -993,7 +1195,8 @@ private struct MonthlySavingsTargetSheet: View {
                 SettingsSheetHeader(
                     systemImage: "target",
                     title: "Monthly Savings Target",
-                    subtitle: "This is the monthly pace Delayd uses to convert spending into delay days."
+                    subtitle: "This is the monthly pace Delayd uses to convert spending into delay days.",
+                    onClose: onClose
                 )
 
                 VStack(alignment: .leading, spacing: AppSpacing.sm) {
@@ -1169,6 +1372,7 @@ private struct SettingsInfoSheet: View {
     let subtitle: String
     let detail: String
     let primaryTitle: String
+    let onClose: () -> Void
     let onPrimary: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -1176,7 +1380,7 @@ private struct SettingsInfoSheet: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: AppSpacing.lg) {
-                SettingsSheetHeader(systemImage: systemImage, title: title, subtitle: subtitle)
+                SettingsSheetHeader(systemImage: systemImage, title: title, subtitle: subtitle, onClose: onClose)
 
                 Text(detail)
                     .font(AppTypography.body)
@@ -1313,7 +1517,8 @@ private struct QuickCaptureSetupSheet: View {
                 SettingsSheetHeader(
                     systemImage: "bolt.badge.clock.fill",
                     title: "Quick Capture",
-                    subtitle: "Use iOS Shortcuts and Back Tap to log a spend without opening Delayd first."
+                    subtitle: "Use iOS Shortcuts and Back Tap to log a spend without opening Delayd first.",
+                    onClose: onDone
                 )
 
                 previewCard
@@ -1498,16 +1703,34 @@ private struct SettingsSheetHeader: View {
     let systemImage: String
     let title: String
     let subtitle: String
+    var onClose: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
-            Image(systemName: systemImage)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(AppColors.purplePrimary)
-                .frame(width: 46, height: 46)
-                .background(AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1), in: RoundedRectangle(cornerRadius: AppRadius.md))
+            HStack(alignment: .top) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(AppColors.purplePrimary)
+                    .frame(width: 46, height: 46)
+                    .background(AppColors.softPurpleBackground.opacity(colorScheme == .dark ? 0.22 : 1), in: RoundedRectangle(cornerRadius: AppRadius.md))
+
+                Spacer()
+
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                            .frame(width: 32, height: 32)
+                            .background(AppColors.card(for: colorScheme), in: Circle())
+                            .overlay(Circle().stroke(AppColors.border(for: colorScheme), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
+                }
+            }
 
             VStack(alignment: .leading, spacing: AppSpacing.xs) {
                 Text(title)
@@ -1556,8 +1779,9 @@ private struct ExportDataSheet: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
-    @State private var isSharePresented = false
-    @State private var exportURL: URL?
+    @State private var isFileExporterPresented = false
+    @State private var exportDocument: JSONExportDocument?
+    @State private var exportFileName = "delayd-export"
     @State private var isExporting = false
 
     var body: some View {
@@ -1566,7 +1790,8 @@ private struct ExportDataSheet: View {
                 SettingsSheetHeader(
                     systemImage: "square.and.arrow.up",
                     title: "Export Data",
-                    subtitle: "Export your goals and delay impacts as a JSON file you can save or share."
+                    subtitle: "Export your goals and delay impacts as a JSON file you can save or share.",
+                    onClose: onDone
                 )
 
                 Text("Your data stays local. The export creates a plain JSON file — no account or upload required.")
@@ -1591,10 +1816,13 @@ private struct ExportDataSheet: View {
             .padding(.bottom, AppSpacing.xl)
         }
         .background(AppColors.background(for: colorScheme).ignoresSafeArea())
-        .sheet(isPresented: $isSharePresented, onDismiss: onDone) {
-            if let url = exportURL {
-                ShareSheet(items: [url])
-            }
+        .fileExporter(
+            isPresented: $isFileExporterPresented,
+            document: exportDocument,
+            contentType: .json,
+            defaultFilename: exportFileName
+        ) { _ in
+            onDone()
         }
     }
 
@@ -1640,20 +1868,33 @@ private struct ExportDataSheet: View {
             "expenses": expensesJSON
         ]
 
-        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
-              let tempURL = try? writeTemp(data: data) else { return }
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
+            return
+        }
 
-        exportURL = tempURL
-        isSharePresented = true
-    }
-
-    private func writeTemp(data: Data) throws -> URL {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        let name = "delayd-export-\(formatter.string(from: .now)).json"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-        try data.write(to: url, options: .atomic)
-        return url
+        exportFileName = "delayd-export-\(formatter.string(from: .now))"
+        exportDocument = JSONExportDocument(data: data)
+        isFileExporterPresented = true
+    }
+}
+
+private struct JSONExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+
+    let data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        self.data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
 
@@ -1669,6 +1910,7 @@ private struct ShareSheet: UIViewControllerRepresentable {
 
 private struct ThemePickerSheet: View {
     let selectedTheme: AppTheme
+    let onClose: () -> Void
     let onSelect: (AppTheme) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -1679,7 +1921,8 @@ private struct ThemePickerSheet: View {
                 SettingsSheetHeader(
                     systemImage: "circle.lefthalf.filled",
                     title: "Appearance",
-                    subtitle: "Choose how Delayd looks on this device."
+                    subtitle: "Choose how Delayd looks on this device.",
+                    onClose: onClose
                 )
 
                 VStack(spacing: AppSpacing.sm) {
@@ -1731,6 +1974,7 @@ private struct ThemePickerSheet: View {
 
 private struct TonePickerSheet: View {
     let selectedTone: DelaydTone
+    let onClose: () -> Void
     let onSelect: (DelaydTone) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -1741,7 +1985,8 @@ private struct TonePickerSheet: View {
                 SettingsSheetHeader(
                     systemImage: "quote.bubble.fill",
                     title: "Tone of Voice",
-                    subtitle: "Choose how Delayd speaks across nudges, insights, and reveals."
+                    subtitle: "Choose how Delayd speaks across nudges, insights, and reveals.",
+                    onClose: onClose
                 )
 
                 VStack(spacing: AppSpacing.sm) {
@@ -1826,12 +2071,12 @@ private struct TonePickerSheet: View {
 }
 
 #Preview("Settings Currency Sheet") {
-    CurrencyPickerSheet(selectedCurrency: "USD", onSelect: { _ in })
+    CurrencyPickerSheet(selectedCurrency: "USD", onClose: {}, onSelect: { _ in })
         .preferredColorScheme(.light)
 }
 
 #Preview("Settings Monthly Target Sheet") {
-    MonthlySavingsTargetSheet(currentTarget: 10_000, onSave: { _ in })
+    MonthlySavingsTargetSheet(currentTarget: 10_000, onClose: {}, onSave: { _ in })
         .preferredColorScheme(.light)
 }
 
@@ -1842,6 +2087,7 @@ private struct TonePickerSheet: View {
         subtitle: "Sync is planned for V1.1, while V1 stays local-first.",
         detail: "This keeps launch simpler: no account creation, no forced sign-in, and no cloud dependency before the core habit loop is proven.",
         primaryTitle: "Got it",
+        onClose: {},
         onPrimary: {}
     )
     .preferredColorScheme(.dark)

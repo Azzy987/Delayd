@@ -48,9 +48,9 @@ struct NotificationsView: View {
                                 Button {
                                     dismiss(item)
                                 } label: {
-                                    Label("Archive", systemImage: "archivebox.fill")
+                                    Label("Dismiss", systemImage: "xmark.circle.fill")
                                 }
-                                .tint(AppColors.textSecondary(for: colorScheme))
+                                .tint(AppColors.negative)
                             }
                     }
                 }
@@ -157,13 +157,22 @@ struct NotificationsView: View {
 
     private func notificationRow(_ item: NotificationItem) -> some View {
         HStack(alignment: .top, spacing: AppSpacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(item.kind.tintBackground)
+            if let goalCategory = item.goalCategory {
+                Image(goalCategory.illustrationAssetName)
+                    .resizable()
+                    .scaledToFill()
                     .frame(width: 44, height: 44)
-                Image(systemName: item.kind.systemImage)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(item.kind.tintForeground)
+                    .background(goalCategory.backgroundColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(item.kind.tintBackground)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: item.kind.systemImage)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(item.kind.tintForeground)
+                }
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -188,9 +197,9 @@ struct NotificationsView: View {
                         }
                     } label: {
                         Image(systemName: item.isRead ? "checkmark" : "envelope.open.fill")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(item.isRead ? AppColors.positive : AppColors.purplePrimary)
-                            .frame(width: 24, height: 24)
+                            .frame(width: 30, height: 30)
                             .background(AppColors.softSurface(for: colorScheme), in: Circle())
                     }
                     .buttonStyle(.plain)
@@ -274,6 +283,7 @@ struct NotificationsView: View {
             built.append(NotificationItem(
                 id: event.id,
                 kind: .delayNudge,
+                goalCategory: goal?.category,
                 title: "\(goalLabel) slipped \(event.delayDays) day\(event.delayDays == 1 ? "" : "s")",
                 body: "A recent expense pushed \(goalLabel) further out. Tap History to review.",
                 timeAgo: NotificationsView.relative(from: event.calculatedAt),
@@ -291,6 +301,7 @@ struct NotificationsView: View {
                 built.append(NotificationItem(
                     id: id,
                     kind: .goalMilestone,
+                    goalCategory: goal.category,
                     title: "\(goal.name.delaydGoalTitleCased) hit \(pct)%",
                     body: pct == 100
                         ? "You're there. Time to celebrate this dream."
@@ -434,6 +445,7 @@ struct NotificationItem: Identifiable {
 
     let id: UUID
     let kind: Kind
+    var goalCategory: GoalCategory? = nil
     let title: String
     let body: String
     let timeAgo: String

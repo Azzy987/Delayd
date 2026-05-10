@@ -61,6 +61,8 @@ Anyone with a savings goal who feels their spending sabotages it. Gender-neutral
 - ❌ Language selection → V2 (English only in V1)
 - ❌ Account creation / sign-in
 - ❌ Cloud sync (Supabase) → Prompt 10, optional
+- ❌ Shared couple goals across different phones (requires account + cloud sync)
+- ❌ Cross-device partner activity notifications (when partner logs spend/protects dream)
 - ❌ Widgets → V1.1
 - ❌ Live Activities → V1.1
 - ❌ Multiple currencies per goal
@@ -83,6 +85,8 @@ V1 Pro includes:
 V1.1 Pro candidates:
 - Optional Apple/Google sign-in
 - Private cloud sync across iPhone/iPad
+- Shared couple goals (invite/link partner, shared progress, shared timeline)
+- Partner notifications for shared goals (log/protect events from either partner)
 - Widgets
 - Receipt scanning
 
@@ -185,6 +189,8 @@ Founder pricing reference (internal):
 
 - **V1:** Guest-first, no auth, local-only (SwiftData)
 - **V1.1+:** Optional Supabase sync (Prompt 10), guest-to-account merge
+- **Shared couples mode (V1.1+):** requires account + cloud sync; one partner action
+  (log spend / protect amount) syncs to the shared goal and notifies the other partner.
 - Sign-in is NEVER required to use the app
 
 ---
@@ -213,7 +219,8 @@ Founder pricing reference (internal):
 7. Plan + History + Settings screens
 8. SwiftData persistence
 9. (V1.1) Supabase sync
-10. (V1.1) Voice + Widgets + Paywall
+10. (V1.1) Shared couple goals + partner notifications
+11. (V1.1) Voice + Widgets + Paywall
 
 ---
 

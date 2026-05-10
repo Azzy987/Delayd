@@ -170,7 +170,7 @@ struct PlanGoal: Identifiable, Equatable {
             return "\(aheadDays) \(aheadDays == 1 ? "day" : "days") ahead"
         }
         if delayedDays > 0 {
-            return "\(delayedDays) \(delayedDays == 1 ? "day" : "days") delayed"
+            return "\(DelayTextFormatter.daysText(delayedDays)) delayed"
         }
         return "On pace"
     }

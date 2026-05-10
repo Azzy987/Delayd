@@ -15,6 +15,8 @@ struct DelaydApp: App {
 
     init() {
         ProEntitlementService.configure()
+        DelaydWidgetSync.bootstrapTrialIfNeeded()
+        DelaydWidgetSync.syncProState(isUnlocked: ProEntitlementService.isUnlocked)
     }
 
     var body: some Scene {

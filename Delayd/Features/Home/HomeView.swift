@@ -304,9 +304,19 @@ struct HomeView: View {
                         .fill(.white.opacity(0.25))
                         .overlay(Circle().stroke(.white.opacity(0.5), lineWidth: 2))
                         .frame(width: 36, height: 36)
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.white.opacity(0.85))
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.92))
+
+                    if isProUnlocked {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.25))
+                            .frame(width: 14, height: 14)
+                            .background(.white, in: Circle())
+                            .overlay(Circle().stroke(.white.opacity(0.7), lineWidth: 0.5))
+                            .offset(x: 12, y: -12)
+                    }
                 }
             }
             .buttonStyle(.plain)

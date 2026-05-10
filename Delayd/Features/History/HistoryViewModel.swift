@@ -140,7 +140,7 @@ final class HistoryViewModel {
                             expenseIconSystemImage: Self.expenseIcon(for: expense),
                             merchantName: expense.displayName,
                             goalName: expense.goalName ?? "Dream",
-                            delayText: "\(delayDays) \(delayDays == 1 ? "day" : "days")",
+                            delayText: DelayTextFormatter.daysText(delayDays),
                             amountText: CurrencyFormatter.formatNegative(expense.amount, currencyCode: snapshot.defaultCurrency),
                             occurredAt: expense.occurredAt,
                             amount: expense.amount,
@@ -225,7 +225,7 @@ struct HistoryDaySection: Identifiable, Equatable {
 
     var summaryText: String {
         let formatted = CurrencyFormatter.format(totalSpent, currencyCode: currencyCode)
-        return "Spent: \(formatted) • Delayed: \(totalDelayDays) days"
+        return "Spent: \(formatted) • Delayed: \(DelayTextFormatter.daysText(totalDelayDays))"
     }
 }
 

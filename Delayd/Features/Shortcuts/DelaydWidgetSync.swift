@@ -18,6 +18,39 @@ import WidgetKit
 enum DelaydWidgetSync {
     private static let appGroupID = "group.com.delayd.shared"
     private static let entryKey = "widget.entry"
+    private static let trialStartDateKey = "widget.trial.startDate"
+    private static let proUnlockedKey = "widget.pro.unlocked"
+    private static let trialDurationDays = 7
+
+    static func bootstrapTrialIfNeeded() {
+        let now = Date()
+        if UserDefaults.standard.object(forKey: trialStartDateKey) == nil {
+            UserDefaults.standard.set(now, forKey: trialStartDateKey)
+        }
+
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil else {
+            return
+        }
+        guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
+        if defaults.object(forKey: trialStartDateKey) == nil {
+            defaults.set(now, forKey: trialStartDateKey)
+        }
+    }
+
+    static func syncProState(isUnlocked: Bool) {
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil else {
+            return
+        }
+        guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
+        defaults.set(isUnlocked, forKey: proUnlockedKey)
+        bootstrapTrialIfNeeded()
+    }
+
+    static func widgetTrialDaysLeft(now: Date = .now) -> Int {
+        let startDate = (UserDefaults.standard.object(forKey: trialStartDateKey) as? Date) ?? now
+        let elapsedDays = max(0, Calendar.current.dateComponents([.day], from: startDate, to: now).day ?? 0)
+        return max(0, trialDurationDays - elapsedDays)
+    }
 
     static func refresh(
         goalName: String,
@@ -28,6 +61,12 @@ enum DelaydWidgetSync {
         savedAmount: Double,
         currencySymbol: String = "₹"
     ) {
+        bootstrapTrialIfNeeded()
+        syncProState(isUnlocked: ProEntitlementService.isUnlocked)
+
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil else {
+            return
+        }
         guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
 
         let payload = WidgetEntryPayload(

@@ -179,7 +179,7 @@ struct GoalDetailView: View {
                 title: displayedGoal.aheadDays > 0 ? "Ahead" : "Delayed",
                 value: displayedGoal.aheadDays > 0
                     ? "\(displayedGoal.aheadDays) day\(displayedGoal.aheadDays == 1 ? "" : "s")"
-                    : "\(displayedGoal.delayedDays) day\(displayedGoal.delayedDays == 1 ? "" : "s")"
+                    : DelayTextFormatter.daysText(displayedGoal.delayedDays)
             )
         }
     }
@@ -279,7 +279,7 @@ struct GoalDetailView: View {
         if displayedGoal.aheadDays > 0 {
             timelineLine = "I am ahead by \(displayedGoal.aheadDays) day\(displayedGoal.aheadDays == 1 ? "" : "s")."
         } else if displayedGoal.delayedDays > 0 {
-            timelineLine = "Spending has moved it by \(displayedGoal.delayedDays) day\(displayedGoal.delayedDays == 1 ? "" : "s")."
+            timelineLine = "Spending has moved it by \(DelayTextFormatter.daysText(displayedGoal.delayedDays))."
         } else {
             timelineLine = "I am on pace."
         }

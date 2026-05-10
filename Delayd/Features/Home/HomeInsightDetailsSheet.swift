@@ -39,7 +39,7 @@ struct DelayedThisMonthDetailsSheet: View {
                     )
                     metricCard(
                         title: "Delay impact",
-                        value: "\(delayedDays) days",
+                        value: DelayTextFormatter.daysText(delayedDays),
                         tint: AppColors.negative
                     )
                 }
@@ -188,7 +188,7 @@ struct InsightDetailsSheet: View {
                     )
                     summaryMetric(
                         title: "Delay",
-                        value: "\(delayedDays)d",
+                        value: DelayTextFormatter.shortDaysText(delayedDays),
                         tint: AppColors.warning
                     )
                 }
@@ -412,8 +412,18 @@ private struct SpendVsSaveDonutChart: View {
             .frame(maxWidth: .infinity)
 
             HStack(spacing: AppSpacing.md) {
-                legendDot(color: AppColors.positive, title: "Protected", value: CurrencyFormatter.format(sanitizedSaved, currencyCode: currencyCode))
-                legendDot(color: AppColors.negative, title: "Spent", value: CurrencyFormatter.format(sanitizedSpent, currencyCode: currencyCode))
+                legendDot(
+                    color: AppColors.positive,
+                    title: "Protected",
+                    value: CurrencyFormatter.format(sanitizedSaved, currencyCode: currencyCode),
+                    alignment: .leading
+                )
+                legendDot(
+                    color: AppColors.negative,
+                    title: "Spent",
+                    value: CurrencyFormatter.format(sanitizedSpent, currencyCode: currencyCode),
+                    alignment: .trailing
+                )
             }
         }
         .padding(.vertical, AppSpacing.md)
@@ -443,20 +453,26 @@ private struct SpendVsSaveDonutChart: View {
             .shadow(color: color.opacity(colorScheme == .dark ? 0.12 : 0.16), radius: 10, x: 0, y: 4)
     }
 
-    private func legendDot(color: Color, title: String, value: String) -> some View {
+    private func legendDot(color: Color, title: String, value: String, alignment: Alignment) -> some View {
         HStack(spacing: 6) {
+            if alignment == .trailing {
+                Spacer(minLength: 0)
+            }
+
             Circle()
                 .fill(color)
                 .frame(width: 8, height: 8)
-            VStack(alignment: .leading, spacing: 1) {
+
+            VStack(alignment: alignment == .trailing ? .trailing : .leading, spacing: 1) {
                 Text(title)
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(AppColors.textSecondary(for: colorScheme))
                 Text(value)
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppColors.textPrimary(for: colorScheme))
+                    .multilineTextAlignment(alignment == .trailing ? .trailing : .leading)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: alignment)
     }
 }
